@@ -6,22 +6,14 @@ boolexman
 quick manual:
     tabulate (P and Q and R or S implies T)
 
-    detabulateDNF [P, Q, R] {true, false, false, true, true, false, false, false}
-    detabulateCNF [P, Q, R] {true, false, false, true, true, false, false, false}
+    DONE  subexpressions ((P and Q and R) or (S implies T))
 
-    subexpressions ((P and Q and R) or (S implies T))
+    DONE  symbols ((P and Q and R) or (S implies T))
 
-    symbols ((P and Q and R) or (S implies T))
+    eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
 
-    eval [P, Q] [R, S, T]    ((P and Q and R) or (S implies T))
-
-    toDNF ((P and Q and R) or (S implies T))
-    toCNF ((P and Q and R) or (S implies T))
-
-    elininateITE (A ? B : C)
-    eliminateIFF (A <=> B)
-    eliminateIMP (A => B)
-    eliminateXORdnf (A + B + C)
+    DONE  toDNF ((P and Q and R) or (S implies T))
+    DONE  toCNF ((P and Q and R) or (S implies T))
 
     resolve (((P and Q and R) or (S implies T)))
     resolveDNF {P, Q, false} {!P, !Q, !S} ...
