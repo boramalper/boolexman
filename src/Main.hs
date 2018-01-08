@@ -64,7 +64,7 @@ eval s =
         -- parantheses
         symbolListCRE = "\\[(" ++ symbolRE ++ "(?: ?, ?" ++ symbolRE ++ ")*)\\]"
     in case command of
-        "tabulate" -> 
+        "tabulate" ->
             let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
             in  if   null expression
                 then    "Parsing Error: could not parse the argument! (make"
@@ -97,8 +97,8 @@ eval s =
                      ++ "  sure you enclose the expression in parantheses)"
                 else case parse argument of
                     Left err  -> "Parsing Error: " ++ err
-                    Right exp -> "riiight"
-        "toCNF" -> 
+                    Right exp -> viewDNF $ toDNF exp
+        "toCNF" ->
             let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
             in  if   null expression
                 then    "Parsing Error: could not parse the argument! (make"

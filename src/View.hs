@@ -35,22 +35,43 @@ showSET = recurse 0
 viewSubexpressions :: SET -> String
 viewSubexpressions set =
        bold "Sub-Expression Tree:\n"
-    ++ concat (map (\l -> "  " ++ l ++ "\n") (lines $ showSET set))
+    ++ concatMap (\l -> "  " ++ l ++ "\n") (lines $ showSET set)
     ++ "\n\n"
     ++ bold "Sub-Expression List:\n"
-    ++ (prettifyList $ map show $ flatten set)
+    ++ prettifyList (map show $ flatten set)
 
 viewSymbols :: [Expr] -> String
 viewSymbols ss =
        bold "Symbols:\n"
     ++ prettifyList (map (\(Esym s) -> s) ss)
 
-viewLess :: String -> IO ()
-viewLess s = do
-    callCommand $ "printf \"" ++ sanitize s ++ "\"| less -R~KN "
+viewDNF :: [([(Expr, Expr)], Expr)] -> String
+viewDNF ts =
+       bold "First eliminate ITE:\n"
+    ++ prettifyList (map showPair $ fst (ts !! 0))
+    ++ "After all:\n    " ++ show (snd $ ts !! 0)
+    ++ "\n\n"
+    ++ bold "Then eliminate IFF:\n"
+    ++ prettifyList (map showPair $ fst (ts !! 1))
+    ++ "After all:\n    " ++ show (snd $ ts !! 1)
+    ++ "\n\n"
+    ++ bold "Then eliminate IMP:\n"
+    ++ prettifyList (map showPair $ fst (ts !! 2))
+    ++ "After all:\n    " ++ show (snd $ ts !! 2)
+    ++ "\n\n"
+    ++ bold "Then distribute NOTs:\n"
+    ++ prettifyList (map showPair $ fst (ts !! 3))
+        ++ "After all:\n    " ++ show (snd $ ts !! 3)
+    ++ "\n"
     where
-        sanitize :: String -> String
-        sanitize s = concat $
+        showPair :: (Expr, Expr) -> String
+        showPair (orig, new) = show orig ++ "\nis transformed into\n" ++ show new
+
+viewLess :: String -> IO ()
+viewLess str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KN "
+    where
+        escape :: String -> String
+        escape s = concat
             [
                 case c of
                     '\\' -> "\\\\"
@@ -59,7 +80,7 @@ viewLess s = do
             | c <- s]
 
 prettifyList :: [String] -> String
-prettifyList xs = concat $ map (\x -> "  • " ++ x ++ "\n") xs
+prettifyList = concatMap (\x -> "  • " ++ foldr1 (\l r -> l ++ '\n' : replicate 4 ' ' ++ r) (splitOn "\n" x) ++ "\n")
 
 bold :: String -> String
 bold s = "\x1b[1m" ++ s ++ "\x1b[0m"

@@ -38,15 +38,16 @@ instance Show Expr where
     show (Exor es) = parens $ foldr1 (\a b -> a ++ " + " ++ b) $ map show es
     show (Eiff es) = parens $ foldr1 (\a b -> a ++ " <=> " ++ b) $ map show es
     show (Esym sym) = sym
-    show (Etrue) = "True"
-    show (Efalse) = "False"
+    show Etrue = "True"
+    show Efalse = "False"
 
+-- TODO: instance Arbitrary Expr where
 
 -- SET: Sub-Expression Tree
 data SET = SET Expr [SET] deriving Eq
 
 flatten :: SET -> [Expr]
-flatten (SET expr sets) = nub $ expr : (concat $ map flatten sets)
+flatten (SET expr sets) = nub $ expr : concatMap flatten sets
 
 parens :: String -> String
 parens s = '(' : s ++ ")"

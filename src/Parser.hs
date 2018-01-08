@@ -13,7 +13,7 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-module Parser (normalize, parse, splitTopOn, parseAll) where 
+module Parser (normalize, parse, splitTopOn, parseAll) where
 
 import Data.Char (isAlphaNum, isSpace, isUpper)
 import Data.List
@@ -25,15 +25,11 @@ type ParsingError = String
 
 parse :: String -> Either ParsingError Expr
 parse s
-    | balanced s = recurse [parseITE, parseIFF, parseIMP, parseOR, parseXOR, parseAND, parseSYM]
+    | balanced s = recurse [parseITE, parseIFF, parseIMP, parseOR, parseXOR, parseAND, parseNOT, parseSYM]
     | otherwise  = Left "unbalanced parantheses!"
     where
         recurse :: [String -> Either ParsingError Expr] -> Either ParsingError Expr
         recurse [] = Left "could not parse the expression"
-        -- TODO: trimming parantheses would fail in cases such as
-        --       (A and B) => (B and C)
-        --       as it would be trimmed into
-        --       A and B) => (B and C
         recurse (p:parsers) = case p $ normalize s of
             Right expr -> Right expr
             Left  err  ->
@@ -66,7 +62,7 @@ parseITE s =
                         Left  err -> Left err
                 _ -> Left "multiple else"
             _ -> Left "muliple then"
-    else 
+    else
         case filter (balanced . prefix) $ locateAll ["?"] s of
             [] -> Left ""
             [(condition, _, rest)] -> case filter (balanced . prefix) $ locateAll [":"] rest of
@@ -119,14 +115,21 @@ parseAND s =
             Right sx -> Right $ Eand sx
 
 parseNOT :: String -> Either ParsingError Expr
-parseNOT = undefined
+parseNOT s
+    | "!"    `isPrefixOf` s = case parse $ drop 1 s of
+        e@(Left _) -> e
+        (Right e)  -> Right $ Enot e
+    | "not " `isPrefixOf` s = case parse $ drop 4 s of
+        e@(Left _) -> e
+        (Right e)  -> Right $ Enot e
+    | otherwise  = Left ""
 
 parseSYM :: String -> Either ParsingError Expr
 parseSYM [] = Left "missing symbol/expression!"
 parseSYM s
     | s == "True"  = Right Etrue
     | s == "False" = Right Efalse
-    | otherwise = 
+    | otherwise =
         if isUpper $ head s then
             if all isAlphaNum $ tail s then
                 Right $ Esym s
@@ -201,13 +204,13 @@ balanced s = recurse 0 s == 0
         {- recurse (indeed, *loop*) over the string and count the number of
         "open" parentheses by increasing `o` by one each time a '(' is
         encountered and decreasing by one each time a ')' is encountered.
-        
+
         If `o` ever goes below zero, return -1 (or any non-zero value) to
         indicate that the string is unbalanced.
         EXAMPLE:
           > balanced ")("
           False
-          
+
           Simply counting the number of opening and closing parentheses might
           fail in cases where the number of closing parentheses is greater
           than the number of opening parentheses at some given point in the
@@ -244,7 +247,7 @@ splitTopOn seps = recurse
                 ((pre, mat, _):_) -> pre : (recurse $ drop (length pre + length mat) s)
 
 {- "normalize" the string by
-   
+
    * converting all whitespace characters (e.g. '\t', '\n', ' ', ...) to the
      space character (i.e. ' ')
    * trim all preceding and trailing space characters
@@ -288,7 +291,7 @@ EXAMPLE:
 trimParentheses :: String -> String
 trimParentheses []    = []
 trimParentheses s@[_] = s
-trimParentheses s = 
+trimParentheses s =
     let mid = init $ tail s
     in if   head s == '(' && last s == ')' && balanced mid
        then trimParentheses mid

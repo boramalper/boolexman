@@ -39,6 +39,9 @@ syntax:
 
     True and False are reserved symbols
 
+ITE
+IFF
+IMP
 
 operators (in order):
 

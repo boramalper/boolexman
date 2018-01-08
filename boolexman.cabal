@@ -73,3 +73,7 @@ executable boolexman
 
   -- Base language which the package is written in.
   default-language:    Haskell2010
+
+  -- Options to pass to ghc.
+  -- TODO: add -O2 -Wall
+  ghc-options: -threaded
