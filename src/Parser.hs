@@ -38,6 +38,15 @@ parse s
                 else
                     Left $ err ++ "\n  • In the expression:\n      " ++ trimPreceding ' ' s
 
+{- show Expr is generous with parantheses and therefore this test might be too
+merciful on some edge cases relating to operator precedence, but hey, it's still
+better than nothing!
+-}
+prop_parse :: Expr -> Bool
+prop_parse expr = case parse $ show expr of
+    Left s      -> error s
+    Right expr' -> expr == expr'
+
 {- parseAll tries to parse all the strings in the list `ss`, returning either
 the firt parsing error encountered, or the list of (parsed) expressions.
 -}

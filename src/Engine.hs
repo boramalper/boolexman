@@ -78,10 +78,10 @@ EIGHT TRANSFORMATIONS:
 -}
 toDNF :: Expr -> [([(Expr, Expr)], Expr)]
 toDNF expr =
-    let (eITE, pITE) = (eliminationsITE expr,  eliminateITE expr)
-        (eIFF, pIFF) = (eliminationsIFF pITE,  eliminateIFF pITE)
-        (eIMP, pIMP) = (eliminationsIMP pIFF,  eliminateIMP pIFF)
-        (dNOT, pNOT) = (distributionsNOT pIMP, distributeNOT pIMP)
+    let (eITE, pITE) = (eliminationsITE expr,  eliminateAllITE expr)
+        (eIFF, pIFF) = (eliminationsIFF pITE,  eliminateAllIFF pITE)
+        (eIMP, pIMP) = (eliminationsIMP pIFF,  eliminateAllIMP pIFF)
+        (dNOT, pNOT) = (distributionsNOT pIMP, distributeAllNOT pIMP)
     in  [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (dNOT, pNOT)]
 
 {- replace takes a function and an expression, and iterates over every single
@@ -91,21 +91,13 @@ expression, the expression returned will "replace" its predecessor (i.e. the
 argument of the function), else (i.e. if Nothing is returned) then replace will
 continue iterating.
 
+WARNING:
+  It is the responsibility of the supplied function to recurse into
+  subexpressions of the expression it replaces!
+
 replace is a "template" for all kinds of eliminate* functions.
 -}
 replace :: (Expr -> Maybe Expr) -> Expr -> Expr
-{-
-Enot Expr
-| Eimp Expr Expr
-| Eite Expr Expr Expr
-| Eand [Expr]
-| Eor  [Expr]
-| Exor [Expr]
-| Eiff [Expr]
-| Esym String
-| Etrue
-| Efalse
--}
 replace func expr@(Enot subexpr) = fromMaybe
     (Enot $ replace func subexpr)
     $ func expr
@@ -115,33 +107,121 @@ replace func expr@(Eimp cond cons) = fromMaybe
 replace func expr@(Eite cond cons alt) = fromMaybe
     (Eite (replace func cond) (replace func cons) $ replace func alt)
     $ func expr
-replace func expr@(Eand subExprs) = fromMaybe
-    (Eand $ map (replace func) subExprs)
+replace func expr@(Eand subexprs) = fromMaybe
+    (Eand $ map (replace func) subexprs)
     $ func expr
-replace func expr@(Eor subExprs) = fromMaybe
-    (Eor $ map (replace func) subExprs)
+replace func expr@(Eor subexprs) = fromMaybe
+    (Eor $ map (replace func) subexprs)
     $ func expr
-replace func expr@(Exor subExprs) = fromMaybe
-    (Exor $ map (replace func) subExprs)
+replace func expr@(Exor subexprs) = fromMaybe
+    (Exor $ map (replace func) subexprs)
     $ func expr
-replace func expr@(Eiff subExprs) = fromMaybe
-    (Eiff $ map (replace func) subExprs)
+replace func expr@(Eiff subexprs) = fromMaybe
+    (Eiff $ map (replace func) subexprs)
     $ func expr
 replace func expr@(Esym _) = fromMaybe expr $ func expr
-replace func expr@Etrue = fromMaybe expr $ func expr
-replace func expr@Efalse = fromMaybe expr $ func expr
+replace func expr@Etrue    = fromMaybe expr $ func expr
+replace func expr@Efalse   = fromMaybe expr $ func expr
 
+descend :: (Expr -> Maybe Expr) -> (Expr -> Expr) -> Expr -> Maybe Expr
+descend eliminate eliminateAll expr = case eliminate expr of
+    Just expr' -> Just $ eliminateAll expr'
+    Nothing -> Nothing
 
-eliminateITE2 :: Expr -> Expr
-eliminateITE2 = replace eITE2
+{- eliminateITE eliminates the given if-then-else expression of form (Γ ? Δ : Ω)
+by replacing it with ((Γ ^ Δ) v (!Γ ^ Ω)); if the given expression is of another
+form, then Nothing.
+-}
+eliminateITE :: Expr -> Maybe Expr
+eliminateITE (Eite cond cons alt) = Just $ Eor [Eand [cond, cons], Eand [Enot cond, alt]]
+eliminateITE _ = Nothing
+
+eliminateAllITE :: Expr -> Expr
+eliminateAllITE = replace $ descend eliminateITE eliminateAllITE
+
+{- eliminateIFF eliminates the given if-and-only-if expression of form
+(Γ1 <=> Γ2 <=> ... <=> Γn) by replacing it with (!(Γ1 + Γ2 + ... + Γn)); if the
+given expression is of another form, then Nothing.
+-}
+eliminateIFF :: Expr -> Maybe Expr
+eliminateIFF (Eiff ses) = Just $ Enot $ Exor ses
+eliminateIFF _ = Nothing
+
+eliminateAllIFF :: Expr -> Expr
+eliminateAllIFF = replace $ descend eliminateIFF eliminateAllIFF
+
+{- eliminateIMP eliminates the given implies expressions of form (Γ1 => Γ2) by
+replacing it with (!Γ1 v Γ2); if the given expression is of another form, then
+Nothing.
+-}
+eliminateIMP :: Expr -> Maybe Expr
+eliminateIMP (Eimp cond cons) = Just $ Eor [Enot cond, cons]
+eliminateIMP _ = Nothing
+
+eliminateAllIMP :: Expr -> Expr
+eliminateAllIMP = replace $ descend eliminateIMP eliminateAllIMP
+
+distributeNOT :: Expr -> Maybe Expr
+distributeNOT expr = case expr of
+    Enot (Enot se)  -> Just se
+    Enot (Eand ses) -> Just $ Eor  $ map Enot ses
+    Enot (Eor  ses) -> Just $ Eand $ map Enot ses
+    Enot Etrue      -> Just Efalse
+    Enot Efalse     -> Just Etrue
+    _ -> Nothing
+
+distributeAllNOT :: Expr -> Expr
+distributeAllNOT = replace $ descend distributeNOT distributeAllNOT
+
+{- eliminateXORdnf eliminates the given XOR expression of form
+Γ1 + Γ2 + ... + Γn by replacing it with OR-of all AND'd n combinations of
+Γ1, Γ2, ..., Γn where in each combination odd number of Γs are non-negated
+(i.e. 1, 3, 5, ..., n).
+
+For instance, for (Γ1 + Γ2 + Γ3 + Γ4 + Γ5):
+  ( Γ1 +  Γ2 +  Γ3 +  Γ4 +  Γ5)
+≡
+  ( Γ1 ^  Γ2 ^  Γ3 ^  Γ4 ^  Γ5)
+                              number of non-negated Γs in each AND expression: 5
+
+v (!Γ1 ^ !Γ2 ^  Γ3 ^  Γ4 ^  Γ5) v (!Γ1 ^  Γ2 ^ !Γ3 ^  Γ4 ^  Γ5)
+v (!Γ1 ^  Γ2 ^  Γ3 ^ !Γ4 ^  Γ5) v (!Γ1 ^  Γ2 ^  Γ3 ^  Γ4 ^ !Γ5)
+v ( Γ1 ^ !Γ2 ^ !Γ3 ^  Γ4 ^  Γ5) v ( Γ1 ^ !Γ2 ^  Γ3 ^ !Γ4 ^  Γ5)
+v ( Γ1 ^ !Γ2 ^  Γ3 ^  Γ4 ^ !Γ5) v ( Γ1 ^  Γ2 ^ !Γ3 ^ !Γ4 ^  Γ5)
+v ( Γ1 ^  Γ2 ^ !Γ3 ^  Γ4 ^ !Γ5) v ( Γ1 ^  Γ2 ^  Γ3 ^ !Γ4 ^ !Γ5)
+                              number of non-negated Γs in each AND expression: 3
+
+v (!Γ1 ^ !Γ2 ^ !Γ3 ^ !Γ4 ^  Γ5) v (!Γ1 ^ !Γ2 ^ !Γ3 ^  Γ4 ^ !Γ5)
+v (!Γ1 ^ !Γ2 ^  Γ3 ^ !Γ4 ^ !Γ5) v (!Γ1 ^  Γ2 ^ !Γ3 ^ !Γ4 ^ !Γ5)
+v ( Γ1 ^ !Γ2 ^ !Γ3 ^ !Γ4 ^ !Γ5)
+                              number of non-negated Γs in each AND expression: 1
+
+Total number of AND expressions: C(5, 5) + C(5, 3) + C(5, 1) = 1 + 10 + 5 = 16
+-}
+eliminateXORdnf :: Expr -> Maybe Expr
+eliminateXORdnf (Exor subexprs) =
+    let lsubexprs = length subexprs
+        negationCounts = if lsubexprs `mod` 2 == 0 then [1,3..lsubexprs] else [0,2..lsubexprs]
+        negationCombinations = concatMap (combinations subexprs) negationCounts :: [[Expr]]
+        negatedSubexprs = map (negateIn subexprs) negationCombinations :: [[Expr]]
+    -- reverse makes the output easier to understand (try it!)
+    in  Just $ Eor $ reverse $ map Eand negatedSubexprs
     where
-        eITE2 :: Expr -> Maybe Expr
-        eITE2 (Eite cond cons alt) = Just $ Eor [Eand [eliminateITE2 cond, eliminateITE2 cons], Eand [Enot $ eliminateITE2 cond, eliminateITE2 alt]]
-        eITE2 _ = Nothing
+        {- negateIn negates all expressions in the first list that also occurs
+        in the second (list).
+        -}
+        negateIn :: [Expr] -> [Expr] -> [Expr]
+        negateIn (x:xs) neg =
+            if x `elem` neg then
+                Enot x : negateIn xs neg
+            else
+                x : negateIn xs neg
+        negateIn [] _ = []
 
-prop_ite :: Expr -> Bool
-prop_ite expr = eliminateITE2 expr == eliminateITE expr
+eliminateXORcnf :: Expr -> Maybe Expr
+eliminateXORcnf = undefined
 
+{-
 eliminateNOTXOR :: Expr -> Expr
 eliminateNOTXOR (Enot xe@(Exor _)) = distributeNOT $ eliminateXORdnf xe
 eliminateNOTXOR (Enot se) = Enot $ eliminateNOTXOR se
@@ -152,156 +232,58 @@ eliminateNOTXOR (Eor ses)  = Eor  $ map eliminateNOTXOR ses
 eliminateNOTXOR (Exor ses) = Exor $ map eliminateNOTXOR ses
 eliminateNOTXOR (Eiff ses) = Eiff $ map eliminateNOTXOR ses
 eliminateNOTXOR e@_ = e  -- Esym, Etrue, Efalse
+-}
+
+{- yield takes a function and an expression, and iterates over every single
+subexpression of the expression (including the expression itself), calling the
+supplied function each time. If the supplied function returns Just an
+expression, the expression returned will be added to the list of yielded values,
+else (i.e. if Nothing is returned) then nothing will be added to the list; in
+both cases the iteration will continue for all subexpressions.
+
+yield is a "template" for all kinds of eliminations* functions.
+-}
+yield :: (Expr -> Maybe a) -> Expr -> [a]
+yield func expr@(Enot subexpr) =
+    maybeToList (func expr) ++ yield func subexpr
+yield func expr@(Eimp cond cons) =
+    maybeToList (func expr) ++ yield func cond ++ yield func cons
+yield func expr@(Eite cond cons alt) =
+    maybeToList (func expr) ++ yield func cond ++ yield func cons ++ yield func alt
+yield func expr@(Eand subexprs) =
+    maybeToList (func expr) ++ concatMap (yield func) subexprs
+yield func expr@(Eor subexprs) =
+    maybeToList (func expr) ++ concatMap (yield func) subexprs
+yield func expr@(Exor subexprs) =
+    maybeToList (func expr) ++ concatMap (yield func) subexprs
+yield func expr@(Eiff subexprs) =
+    maybeToList (func expr) ++ concatMap (yield func) subexprs
+yield func expr@(Esym _) = maybeToList $ func expr
+yield func expr@Etrue    = maybeToList $ func expr
+yield func expr@Efalse   = maybeToList $ func expr
+
+maybePair :: (a -> Maybe b) -> a -> Maybe (a, b)
+maybePair func a = case func a of
+    Just b -> Just (a, b)
+    Nothing -> Nothing
 
 distributionsNOT :: Expr -> [(Expr, Expr)]
-distributionsNOT (Eite _ _ _) = error "distributionsNOT doesn't work on Eite!"
-distributionsNOT (Eiff _)     = error "distributionsNOT doesn't work on Eiff!"
-distributionsNOT (Eimp _ _)   = error "distributionsNOT doesn't work on Eimp!"
-distributionsNOT e@(Enot (Enot se)) = (e, se) : distributionsNOT se
-distributionsNOT e@(Enot Etrue) = [(e, Efalse)]
-distributionsNOT e@(Enot Efalse) = [(e, Etrue)]
-distributionsNOT e@(Enot (Eand ses)) = (e, Eor  $ map Enot ses) : concatMap (distributionsNOT . Enot) ses
-distributionsNOT e@(Enot (Eor  ses)) = (e, Eand $ map Enot ses) : concatMap (distributionsNOT . Enot) ses
-distributionsNOT (Eor  ses) = concatMap distributionsNOT ses
-distributionsNOT (Eand ses) = concatMap distributionsNOT ses
-distributionsNOT (Exor ses) = concatMap distributionsNOT ses
-distributionsNOT _ = []  -- (Enot (Exor _)), Esym, (Enot (Esym _)), Etrue, Efalse
-
-distributeNOT :: Expr -> Expr
-distributeNOT (Eite _ _ _) = error "distributeNOT doesn't work on Eite!"
-distributeNOT (Eiff _)     = error "distributeNOT doesn't work on Eiff!"
-distributeNOT (Eimp _ _)   = error "distributeNOT doesn't work on Eimp!"
-distributeNOT (Enot (Enot se)) = distributeNOT se
-distributeNOT (Enot Etrue) = Efalse
-distributeNOT (Enot Efalse) = Etrue
-distributeNOT (Enot (Eand ses)) = Eor  $ map (distributeNOT . Enot) ses
-distributeNOT (Enot (Eor  ses)) = Eand $ map (distributeNOT . Enot) ses
-distributeNOT (Eand ses) = Eand $ map distributeNOT ses
-distributeNOT (Eor ses)  = Eor  $ map distributeNOT ses
-distributeNOT (Exor ses) = Exor $ map distributeNOT ses
-distributeNOT e@_ = e  -- (Enot (Exor _)), Esym, (Enot (Esym _)), Etrue, Efalse
-
-{- eliminateITE eliminates all if-then-else expressions of form Γ ? Δ : Ω in the
-given expression by replacing them with (Γ ^ Δ) v (!Γ ^ Ω).
--}
-eliminateITE :: Expr -> Expr
-eliminateITE (Enot se) = Enot $ eliminateITE se
-eliminateITE (Eimp cond cons) = Eimp (eliminateITE cond) (eliminateITE cons)
-eliminateITE (Eite cond cons alt) = Eor [Eand [eliminateITE cond, eliminateITE cons], Eand [Enot $ eliminateITE cond, eliminateITE alt]]
-eliminateITE (Eand ses) = Eand $ map eliminateITE ses
-eliminateITE (Eor ses)  = Eor  $ map eliminateITE ses
-eliminateITE (Exor ses) = Exor $ map eliminateITE ses
-eliminateITE (Eiff ses) = Eiff $ map eliminateITE ses
-eliminateITE e@_ = e  -- Esym, Etrue, Efalse
+distributionsNOT = yield $ maybePair distributeNOT
 
 eliminationsITE :: Expr -> [(Expr, Expr)]
-eliminationsITE = nub . recurse
-    where
-        recurse :: Expr -> [(Expr, Expr)]
-        recurse (Enot se) = recurse se
-        recurse (Eimp cond cons) = recurse cond ++ recurse cons
-        recurse e@(Eite cond cons alt) =
-            (e, Eor [Eand [cond, cons], Eand [Enot cond, alt]]) : recurse cond ++ recurse cons ++ recurse alt
-        recurse (Eand ses) = concatMap recurse ses
-        recurse (Eor ses)  = concatMap recurse ses
-        recurse (Exor ses) = concatMap recurse ses
-        recurse (Eiff ses) = concatMap recurse ses
-        recurse _ = []
-
-{- eliminateIFF eliminates all if-and-only-if expressions of form
-Γ1 <=> Γ2 <=> ... <=> Γn in the given expression by replacing them with
-!(Γ1 + Γ2 + ... + Γn)
--}
-eliminateIFF :: Expr -> Expr
-eliminateIFF (Enot se) = Enot $ eliminateIFF se
-eliminateIFF (Eimp cond cons) = Eimp (eliminateIFF cond) (eliminateIFF cons)
-eliminateIFF (Eite cond cons alt) = Eite (eliminateIFF cond) (eliminateIFF cons) (eliminateIFF alt)
-eliminateIFF (Eand ses) = Eand $ map eliminateIFF ses
-eliminateIFF (Eor ses)  = Eor  $ map eliminateIFF ses
-eliminateIFF (Exor ses) = Exor $ map eliminateIFF ses
-eliminateIFF (Eiff ses) = Enot $ Exor $ map eliminateIFF ses
-eliminateIFF e@_ = e  -- Esym, Etrue, Efalse
+eliminationsITE = yield $ maybePair eliminateITE
 
 eliminationsIFF :: Expr -> [(Expr, Expr)]
-eliminationsIFF = nub . recurse
-    where
-        recurse :: Expr -> [(Expr, Expr)]
-        recurse (Enot se) = recurse se
-        recurse (Eimp cond cons) = recurse cond ++ recurse cons
-        recurse (Eite cond cons alt) = recurse cond ++ recurse cons ++ recurse alt
-        recurse (Eand ses) = concatMap recurse ses
-        recurse (Eor ses)  = concatMap recurse ses
-        recurse (Exor ses) = concatMap recurse ses
-        recurse e@(Eiff ses) = (e, Enot $ Exor ses) : concatMap recurse ses
-        recurse _ = []
-
-eliminateIMP :: Expr -> Expr
-eliminateIMP (Enot se) = Enot $ eliminateIMP se
-eliminateIMP (Eimp cond cons) = Eor [Enot (eliminateIMP cond), eliminateIMP cons]
-eliminateIMP (Eite cond cons alt) = Eite (eliminateIMP cond) (eliminateIMP cons) (eliminateIMP alt)
-eliminateIMP (Eand ses) = Eand $ map eliminateIMP ses
-eliminateIMP (Eor ses)  = Eor  $ map eliminateIMP ses
-eliminateIMP (Exor ses) = Exor $ map eliminateIMP ses
-eliminateIMP (Eiff ses) = Eiff $ map eliminateIMP ses
-eliminateIMP e@_ = e  -- Esym, Etrue, Efalse
+eliminationsIFF = yield $ maybePair eliminateIFF
 
 eliminationsIMP :: Expr -> [(Expr, Expr)]
-eliminationsIMP = nub . recurse
-    where
-        recurse :: Expr -> [(Expr, Expr)]
-        recurse (Enot se) = recurse se
-        recurse e@(Eimp cond cons) = (e, Eor [Enot (eliminateIMP cond), eliminateIMP cons]) : recurse cond ++ recurse cons
-        recurse (Eite cond cons alt) = recurse cond ++ recurse cons ++ recurse alt
-        recurse (Eand ses) = concatMap recurse ses
-        recurse (Eor ses)  = concatMap recurse ses
-        recurse (Exor ses) = concatMap recurse ses
-        recurse (Eiff ses) = concatMap recurse ses
-        recurse _ = []
+eliminationsIMP = yield $ maybePair eliminateIMP
 
-{- eliminateXORdnf eliminates all XOR expressions of form Γ1 + Γ2 + ... + Γn in
-the given expression by replacing them with OR-of all possible combinations of n
-of Γ1, Γ2, ..., Γn AND'd where in each combination an even number of Γs are
-negated (i.e. 0, 2, 4, ...).
+eliminationsXORdnf :: Expr -> [(Expr, Expr)]
+eliminationsXORdnf = yield $ maybePair eliminateXORdnf
 
-For instance, for (Γ1 + Γ2 + Γ3 + Γ4 + Γ5):
-  ( Γ1 +  Γ2 +  Γ3 +  Γ4 +  Γ5)
-≡
-  ( Γ1 ^  Γ2 ^  Γ3 ^  Γ4 ^  Γ5)
-                                  number of negated Γs in each AND expression: 0
-
-v (!Γ1 ^ !Γ2 ^  Γ3 ^  Γ4 ^  Γ5) v (!Γ1 ^  Γ2 ^ !Γ3 ^  Γ4 ^  Γ5)
-v (!Γ1 ^  Γ2 ^  Γ3 ^ !Γ4 ^  Γ5) v (!Γ1 ^  Γ2 ^  Γ3 ^  Γ4 ^ !Γ5)
-v ( Γ1 ^ !Γ2 ^ !Γ3 ^  Γ4 ^  Γ5) v ( Γ1 ^ !Γ2 ^  Γ3 ^ !Γ4 ^  Γ5)
-v ( Γ1 ^ !Γ2 ^  Γ3 ^  Γ4 ^ !Γ5) v ( Γ1 ^  Γ2 ^ !Γ3 ^ !Γ4 ^  Γ5)
-v ( Γ1 ^  Γ2 ^ !Γ3 ^  Γ4 ^ !Γ5) v ( Γ1 ^  Γ2 ^  Γ3 ^ !Γ4 ^ !Γ5)
-                                  number of negated Γs in each AND expression: 2
-
-v (!Γ1 ^ !Γ2 ^ !Γ3 ^ !Γ4 ^  Γ5) v (!Γ1 ^ !Γ2 ^ !Γ3 ^  Γ4 ^ !Γ5)
-v (!Γ1 ^ !Γ2 ^  Γ3 ^ !Γ4 ^ !Γ5) v (!Γ1 ^  Γ2 ^ !Γ3 ^ !Γ4 ^ !Γ5)
-v ( Γ1 ^ !Γ2 ^ !Γ3 ^ !Γ4 ^ !Γ5)
-                                  number of negated Γs in each AND expression: 4
-
-Total number of AND expressions: C(5, 0) + C(5, 2) + C(5, 4) = 1 + 10 + 5 = 16
--}
-eliminateXORdnf :: Expr -> Expr
-eliminateXORdnf (Enot se) = Enot $ eliminateXORdnf se
-eliminateXORdnf (Eimp cond cons) = Eimp (eliminateXORdnf cond) (eliminateXORdnf cons)
-eliminateXORdnf (Eite cond cons alt) = Eite (eliminateXORdnf cond) (eliminateXORdnf cons) (eliminateXORdnf alt)
-eliminateXORdnf (Eand ses) = Eand $ map eliminateXORdnf ses
-eliminateXORdnf (Eor ses)  = Eor  $ map eliminateXORdnf ses
-eliminateXORdnf (Exor ses) =
-    let l = map eliminateXORdnf ses
-    in  Eor $ concatMap (\e -> map (\combination -> Eand $ negateIn l combination) $ combinations l e) (if length l `mod` 2 == 0 then [1,3..length l] else [0,2..length l])
-    where
-        negateIn :: [Expr] -> [Expr] -> [Expr]
-        negateIn (x:xs) neg =
-            if x `elem` neg then
-                Enot x : negateIn xs neg
-            else
-                x : negateIn xs neg
-        negateIn [] _ = []
-eliminateXORdnf (Eiff ses) = Eiff $ map eliminateXORdnf ses
-eliminateXORdnf e@_ = e  -- Esym, Etrue, Efalse
+eliminationsXORcnf :: Expr -> [(Expr, Expr)]
+eliminationsXORcnf = yield $ maybePair eliminateXORcnf
 
 combinations :: [a] -> Int -> [[a]]
 combinations _  0 = [[]]  -- C(0, 0) = C(length s, 0) = 1,  ∀s
