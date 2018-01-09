@@ -105,6 +105,66 @@ toDNF expr =
         [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (dNOT, pNOT), (eCNF, pCNF),
         (eDNF, pDNF), (dNT2, pNT2), (dAOR, pAOR)]
 
+{- eval, given a list of true symbols, false symbols, and an expression, returns
+a tuple where the first element of the tuple is a another tuple of list of
+expressions for the symbols in trueSymbols list and falseSymbols lists
+(respectively) that do NOT exist in the expression supplied, and the second
+element of the returned tuple is another tuple whose first element is the
+partially-evaluated expression after the CNF-based elimination, second element
+is the final result of partial evaluation in DNF form.
+
+eval supports partial evaluation.
+-}
+eval :: [Expr] -> [Expr] -> Expr -> EvalResult
+eval trueSymbols falseSymbols expr =
+    let cnf = snd $ last $ toCNF expr
+        pos = flattenCNF cnf
+        pTE = eliminateTrue trueSymbols pos
+        flattenCNF (Eand maxterms) = map (\(Eor  maxterm) -> maxterm) maxterms
+        flattenDNF (Eor minterms)  = map (\(Eand minterm) -> minterm) minterms
+    in  EvalResult { redundantTrueSymbols  = filter (`notElem` symbols expr) trueSymbols
+                   , redundantFalseSymbols = filter (`notElem` symbols expr) falseSymbols
+                   , cnf                   = cnf
+                   , trueEliminations      = eliminationsTrue trueSymbols pos
+                   , postTrueElimination   = pTE
+                   , dnf                   = snd $ last $ toDNF pTE
+                   , falseEliminations     = eliminationsFalse trueSymbols $ flattenDNF pTE
+                   , postFalseElimination  = eliminateFalse falseSymbols $ flattenDNF pTE
+                   }
+
+eliminateTrue :: [Expr] -> [[Expr]] -> Expr
+eliminateTrue trueSymbols maxterms =
+    let trueEliminations   = eliminationsTrue trueSymbols maxterms
+        eliminatedMaxterms = map snd trueEliminations
+    in  Eand $ map Eor $ maxterms \\ eliminatedMaxterms
+
+eliminationsTrue :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
+eliminationsTrue _ [] = []
+eliminationsTrue trueSymbols (mt:maxterms) =
+    if   Etrue `elem` mt
+    then eliminationsTrue trueSymbols maxterms
+    else case findOne trueSymbols mt of
+        Just aTrueSymbol -> (aTrueSymbol, mt) : eliminationsTrue trueSymbols maxterms
+        Nothing          -> eliminationsTrue trueSymbols maxterms
+
+findOne :: Eq a => [a] -> [a] -> Maybe a
+findOne [] _ = Nothing
+findOne (n:needles) haystack = if n `elem` haystack then Just n else findOne needles haystack
+
+eliminateFalse :: [Expr] -> [[Expr]] -> Expr
+eliminateFalse falseSymbols minterms =
+    let falseEliminations  = eliminationsFalse falseSymbols minterms
+        eliminatedMinterms = map snd falseEliminations
+    in  Eor $ map Eand $ minterms \\ eliminatedMinterms
+
+eliminationsFalse :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
+eliminationsFalse falseSymbols (mt:minterms) =
+    if   Efalse `elem` mt
+    then eliminationsFalse falseSymbols minterms
+    else case findOne falseSymbols mt of
+        Just aFalseSymbol -> (aFalseSymbol, mt) : eliminationsFalse falseSymbols minterms
+        Nothing           -> eliminationsFalse falseSymbols minterms
+
 {- replace takes a function and an expression, and iterates over every single
 subexpression of the expression (including the expression itself), calling the
 supplied function each time. If the supplied function returns Just an

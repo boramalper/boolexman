@@ -13,15 +13,41 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-module Parser (normalize, parse, splitTopOn, parseAll) where
+module Parser (normalize, parse, splitTopOn, parseAll, parseCsSymbols) where
 
 import Data.Char (isAlphaNum, isSpace, isUpper)
 import Data.List
+import Data.List.Split
 import Test.QuickCheck
 
 import Expression
 
 type ParsingError = String
+
+{- parses the comma seperated list of symbols.
+
+WARNING:
+  It will err on special symbols True and False! This is intentional.
+-}
+parseCsSymbols :: String -> Either ParsingError [Expr]
+parseCsSymbols str =
+    case parseAll $ splitOn "," $ removeSpaces $ normalize str of
+        Left err -> Left err
+        Right expressions -> if   all isSymbol expressions
+                             then Right expressions
+                             else Left "not a list of symbols!"
+    where
+        isSymbol :: Expr -> Bool
+        isSymbol (Esym _) = True
+        isSymbol _        = False
+
+        -- removeSpaces after the comma
+        removeSpaces :: String -> String
+        removeSpaces [] = []
+        removeSpaces [a] = [a]
+        removeSpaces (a:b:s) = if a == ',' && b == ' '
+                               then removeSpaces $ ',' : s
+                               else a : removeSpaces (b : s)
 
 parse :: String -> Either ParsingError Expr
 parse s

@@ -49,5 +49,15 @@ data SET = SET Expr [SET] deriving Eq
 flatten :: SET -> [Expr]
 flatten (SET expr sets) = nub $ expr : concatMap flatten sets
 
+data EvalResult = EvalResult { redundantTrueSymbols  :: [Expr]
+                             , redundantFalseSymbols :: [Expr]
+                             , cnf                   :: Expr
+                             , trueEliminations      :: [(Expr, [Expr])]
+                             , postTrueElimination   :: Expr
+                             , dnf                   :: Expr
+                             , falseEliminations     :: [(Expr, [Expr])]
+                             , postFalseElimination  :: Expr
+                             } deriving (Show)
+
 parens :: String -> String
 parens s = '(' : s ++ ")"

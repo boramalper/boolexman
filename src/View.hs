@@ -30,7 +30,7 @@ showSET = recurse 0
             let indent      = (concat $ replicate level "│  ")
                 linePrefix  = indent ++ "├─ "
                 nl          = '\n' : linePrefix
-            in  show expr ++ nl ++ (foldr1 (\a b -> a ++ nl ++ b) $ map (recurse $ level + 1) sets)
+            in  show expr ++ nl ++ foldr1 (\a b -> a ++ nl ++ b) (map (recurse $ level + 1) sets)
 
 viewSubexpressions :: SET -> String
 viewSubexpressions set =
@@ -114,6 +114,30 @@ viewDNF ts =
     ++ prettifyList (map showPair $ fst (ts !! 7))
     ++ "After all:\n    " ++ show (snd $ ts !! 7)
     ++ "\n"
+
+viewEval :: EvalResult -> String
+viewEval r =
+        if   not (null (redundantTrueSymbols r)) || not (null (redundantFalseSymbols r))
+        then    bold "ATTENTION: Some of the true/false symbols have not been found in the expression!\n"
+             ++ (if not (null (redundantTrueSymbols  r)) then "Redundant True Symbols: "  ++ show (redundantTrueSymbols  r) else "")
+             ++ (if not (null (redundantFalseSymbols r)) then "Redundant False Symbols: " ++ show (redundantFalseSymbols r) else "")
+             ++ "\n\n"
+        else ""
+     ++ bold "First transform into CNF:" ++ "\n"
+     ++ show (cnf r) ++ "\n\n"
+     ++ bold "Eliminate all maxterms which constains a true symbol:" ++ "\n"
+     ++ prettifyList (map showPair2 $ trueEliminations r) ++ "\n\n"
+     ++ bold "After all:" ++ "\n"
+     ++ show (postTrueElimination r) ++ "\n\n"
+     ++ bold "Transform into DNF:" ++ "\n"
+     ++ show (dnf r) ++ "\n\n"
+     ++ bold "Eliminate all minterms which constains a false symbol:" ++ "\n"
+     ++ prettifyList (map showPair2 $ falseEliminations r) ++ "\n\n"
+     ++ bold "After all:" ++ "\n"
+     ++ show (postFalseElimination r) ++ "\n\n"
+
+showPair2 :: (Expr, [Expr]) -> String
+showPair2 (sym, maxterm) = show maxterm ++ "\nis eliminated because " ++ show sym ++ " is true."
 
 showPair :: (Expr, Expr) -> String
 showPair (orig, new) = show orig ++ "\nis transformed into\n" ++ show new

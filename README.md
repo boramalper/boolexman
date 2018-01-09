@@ -4,23 +4,26 @@ boolexman
 
 
 quick manual:
-    tabulate (P and Q and R or S implies T)
+          help
+
+    DONE  quit
+
+          tabulate (P and Q and R or S implies T)
 
     DONE  subexpressions ((P and Q and R) or (S implies T))
 
     DONE  symbols ((P and Q and R) or (S implies T))
 
-    eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
+          eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
 
     DONE  toDNF ((P and Q and R) or (S implies T))
     DONE  toCNF ((P and Q and R) or (S implies T))
 
-    resolve (((P and Q and R) or (S implies T)))
-    resolveDNF {P, Q, false} {!P, !Q, !S} ...
+          resolve (((P and Q and R) or (S implies T)))
 
-    prove (((P and Q and R) or (S implies T)))  -- gentzen
+          prove (((P and Q and R) or (S implies T)))  -- gentzen
 
-    entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
+          entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
 
 syntax:
 

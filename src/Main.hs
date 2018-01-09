@@ -35,24 +35,20 @@ main = do
 loop :: Integer -> IO ()
 loop no = do
     line <- readline $ '\n' : formatNo 4 no ++ "> "
-    process line no
+    case line of
+        Nothing -> putStrLn "\nEOF received, quitting..."
+        Just line -> unless (line == "quit") $ do
+            addHistory line
+            viewLess $ process line
+            loop $ no + 1
     where
         formatNo :: Int -> Integer -> String
         formatNo minLength no =
             let noStr = show no
             in replicate (minLength - length noStr) ' ' ++ noStr
 
-        process :: Maybe String -> Integer -> IO ()
-        process Nothing _ = putStrLn "\nEOF received, quitting..."
-        process (Just line) no =
-            unless (line == "quit") $ do
-                addHistory line
-                viewLess $ eval line
-                -- putStrLn $ eval line
-                loop $ no + 1
-
-eval :: String -> String
-eval s =
+process :: String -> String
+process s =
     let s'       = normalize s
         command  = head $ splitOn " " s'
         argument = drop (length command + 1) s'  -- +1 for the space character
@@ -62,8 +58,12 @@ eval s =
         symbolRE     = "[A-Z][a-zA-Z0-9]*"
         -- CAPTURES the comma-separated list of symbols between the square
         -- parantheses
-        symbolListCRE = "\\[(" ++ symbolRE ++ "(?: ?, ?" ++ symbolRE ++ ")*)\\]"
+        -- symbolListCRE = "\\[(" ++ symbolRE ++ "(?: ?, ?" ++ symbolRE ++ ")*)\\]"
+        symbolListCRE = "\\[(.*)\\]"
     in case command of
+        "help" ->
+            undefined
+
         "tabulate" ->
             let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
             in  if   null expression
@@ -88,8 +88,20 @@ eval s =
                 else case parse argument of
                     Left err  -> "Parsing Error: " ++ err
                     Right exp -> viewSymbols $ symbols exp
+        -- TODO: This looks really ugly, isn't there a neater way?
         "eval" -> -- [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
-            undefined
+            let (_, _, _, matches) = argument =~ (symbolListCRE ++ ' ' : symbolListCRE ++ ' ' : expressionCRE) :: (String, String, String, [String])
+            in  if   length matches /= 3
+                then "Parsing Error: supply two lists of symbols, and an expression!"
+                else case parseCsSymbols $ matches !! 0 of
+                    Left err          -> "Parsing Error: " ++ err ++ "(in the first list)"
+                    Right trueSymbols -> case parseCsSymbols $ matches !! 1 of
+                        Left err           -> "Parsing Error: " ++ err ++ "(in the second list)"
+                        Right falseSymbols -> case parse $ matches !! 2 of
+                            Left err  -> "Parsing Error: " ++ err ++ "(in the expression)"
+                            Right exp -> viewEval $ eval trueSymbols falseSymbols exp -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
+                            --
+
         "toDNF" ->
             let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
             in  if   null expression
@@ -114,8 +126,6 @@ eval s =
                 else case parse argument of
                     Left err  -> "Parsing Error: " ++ err
                     Right exp -> "riiight"
-        "resolveDNF" -> -- {P, Q} {!P, !Q, !S} ...
-            undefined
         "prove" ->
             let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
             in  if   null expression
