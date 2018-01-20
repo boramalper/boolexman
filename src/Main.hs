@@ -89,7 +89,7 @@ process s =
                     Left err  -> "Parsing Error: " ++ err
                     Right exp -> viewSymbols $ symbols exp
         -- TODO: This looks really ugly, isn't there a neater way?
-        "eval" -> -- [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
+        "eval" -> -- eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
             let (_, _, _, matches) = argument =~ (symbolListCRE ++ ' ' : symbolListCRE ++ ' ' : expressionCRE) :: (String, String, String, [String])
             in  if   length matches /= 3
                 then "Parsing Error: supply two lists of symbols, and an expression!"
@@ -143,3 +143,6 @@ process s =
                 else case parseAll expressions of
                     Left err  -> "Parsing Error: " ++ err
                     Right exp -> "riiight"
+
+        command ->
+            "Error: Unknown command!"

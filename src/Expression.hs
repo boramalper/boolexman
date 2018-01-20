@@ -16,6 +16,10 @@ THIS SOFTWARE.
 module Expression where
 
 import Data.List
+import Debug.Trace
+import Test.QuickCheck
+import Test.QuickCheck.Arbitrary
+
 
 data Expr = Enot Expr
           | Eimp Expr Expr
@@ -27,21 +31,59 @@ data Expr = Enot Expr
           | Esym String
           | Etrue
           | Efalse
-    deriving (Eq)
+    deriving Eq
 
 instance Show Expr where
     show (Enot se) = '!' : show se
     show (Eimp cond cons) = parens $ show cond ++ " => " ++ show cons
     show (Eite cond cons alt) = parens $ show cond ++ " ? " ++ show cons ++ " : " ++ show alt
-    show (Eand es) = parens $ foldr1 (\a b -> a ++ " ^ " ++ b) $ map show es
-    show (Eor es)  = parens $ foldr1 (\a b -> a ++ " v " ++ b) $ map show es
-    show (Exor es) = parens $ foldr1 (\a b -> a ++ " + " ++ b) $ map show es
-    show (Eiff es) = parens $ foldr1 (\a b -> a ++ " <=> " ++ b) $ map show es
+    show (Eand es) = parens $ "" ++ (foldr1 (\a b -> a ++ " ^ " ++ b) $ map show es)
+    show (Eor es)  = parens $ "" ++ (foldr1 (\a b -> a ++ " v " ++ b) $ map show es)
+    show (Exor es) = parens $ "" ++ (foldr1 (\a b -> a ++ " + " ++ b) $ map show es)
+    show (Eiff es) = parens $ "" ++ (foldr1 (\a b -> a ++ " <=> " ++ b) $ map show es)
     show (Esym sym) = sym
     show Etrue = "True"
     show Efalse = "False"
 
--- TODO: instance Arbitrary Expr where
+-- TODO: I don't think this is a "high quality" one...
+instance Arbitrary Expr where
+    arbitrary =
+        let
+            -- TODO: Isn't there a better way to indicate that x is an Int for
+            -- God's sake!?
+            definitelyInt :: Int -> Int
+            definitelyInt x = x
+        in do { x <- arbitrary;
+              ; case definitelyInt x `mod` 6 of
+                    0 -> do { subexpr <- arbitrary
+                            ; return $ Enot subexpr }
+                    1 -> do { cond <- arbitrary
+                            ; cons <- arbitrary
+                            ; return $ Eimp cond cons }
+                    2 -> do { cond <- arbitrary
+                            ; cons <- arbitrary
+                            ; alt  <- arbitrary
+                            ; return $ Eite cond cons alt }
+                    3 -> do { subexprs <- arbitrary
+                            ; return $ Eand subexprs }
+                    4 -> do { subexprs <- arbitrary
+                            ; return $ Eor subexprs }
+                    5 -> do { subexprs <- arbitrary
+                            ; return $ Exor subexprs }
+                    6 -> do { subexprs <- arbitrary
+                            ; return $ Eiff subexprs }
+                    {- TODO: Why only A,B,C,D,E? We would like some symbols to
+                    appear multiple times in an expression so that we can test
+                    some more complicated cases.
+                    -}
+                    7 -> do { i <- arbitrary
+                            ; return $ Esym $ ["A", "B", "C", "D", "E"] !! (i `mod` 5) }
+                    8 -> return Etrue
+                    9 -> return Efalse
+
+                }
+prop_deneme :: Expr -> Bool
+prop_deneme expr = not $ null $ trace (show expr ++ "\n") $ show expr
 
 -- SET: Sub-Expression Tree
 data SET = SET Expr [SET] deriving Eq

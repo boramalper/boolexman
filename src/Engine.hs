@@ -17,6 +17,7 @@ module Engine where
 
 import Data.List
 import Data.Maybe
+import Debug.Trace
 import Test.QuickCheck
 
 import Expression
@@ -101,9 +102,13 @@ toDNF expr =
         (dNT2, pNT2) = (distributionsNOT       pDNF,  distributeAllNOT      pDNF)
     -- 8. Distribute ANDs over ORs
         (dAOR, pAOR) = (distributionsANDOR     pNT2,  distributeAllANDOR    pNT2)
+    -- 9. TODO: simplify nested ANDs and ORs!
     in
         [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (dNOT, pNOT), (eCNF, pCNF),
         (eDNF, pDNF), (dNT2, pNT2), (dAOR, pAOR)]
+
+prop_toDNF :: Expr -> Bool
+prop_toDNF = isDNF . snd . last . toDNF
 
 {- eval, given a list of true symbols, false symbols, and an expression, returns
 a tuple where the first element of the tuple is a another tuple of list of
@@ -118,25 +123,58 @@ eval supports partial evaluation.
 eval :: [Expr] -> [Expr] -> Expr -> EvalResult
 eval trueSymbols falseSymbols expr =
     let cnf = snd $ last $ toCNF expr
-        pos = flattenCNF cnf
+        pos = flattenCNF cnf  -- product of sums
         pTE = eliminateTrue trueSymbols pos
-        flattenCNF (Eand maxterms) = map (\(Eor  maxterm) -> maxterm) maxterms
-        flattenDNF (Eor minterms)  = map (\(Eand minterm) -> minterm) minterms
+        dnf =  snd $ last $ toDNF pTE
+        sop = flattenDNF dnf  -- sum of products
     in  EvalResult { redundantTrueSymbols  = filter (`notElem` symbols expr) trueSymbols
                    , redundantFalseSymbols = filter (`notElem` symbols expr) falseSymbols
                    , cnf                   = cnf
                    , trueEliminations      = eliminationsTrue trueSymbols pos
                    , postTrueElimination   = pTE
-                   , dnf                   = snd $ last $ toDNF pTE
-                   , falseEliminations     = eliminationsFalse trueSymbols $ flattenDNF pTE
-                   , postFalseElimination  = eliminateFalse falseSymbols $ flattenDNF pTE
+                   , dnf                   = dnf
+                   , falseEliminations     = eliminationsFalse falseSymbols sop
+                   , postFalseElimination  = eliminateFalse falseSymbols sop
                    }
+
+isCNF :: Expr -> Bool
+isCNF (Eor xs)  =    justSymbolsOrNegationOfSymbols xs
+isCNF (Eand xs) =    justSymbolsOrNegationOfSymbols xs
+                  || all (\(Eor x) -> justSymbolsOrNegationOfSymbols x) xs
+
+isDNF :: Expr -> Bool
+isDNF (Eand xs) = justSymbolsOrNegationOfSymbols xs
+isDNF (Eor xs)  =    justSymbolsOrNegationOfSymbols xs
+                  || all (\(Eand x) -> justSymbolsOrNegationOfSymbols x) xs
+
+flattenCNF :: Expr -> [[Expr]]
+flattenCNF expr
+    | not $ isCNF expr = trace (show expr) $ error "not CNF"
+    | otherwise = case expr of
+        Eor  xs -> [xs]
+        Eand xs -> map (\x -> case x of Eor x' -> x'; x' -> [x']) xs
+
+flattenDNF :: Expr -> [[Expr]]
+flattenDNF expr
+    | not $ isDNF expr = error "not DNF"
+    | otherwise = case expr of
+        Eand xs -> [xs]
+        Eor  xs -> map (\x -> case x of Eand x' -> x'; x' -> [x']) xs
+
+justSymbolsOrNegationOfSymbols :: [Expr] -> Bool
+justSymbolsOrNegationOfSymbols []= True
+justSymbolsOrNegationOfSymbols (Esym _ : xs) = justSymbolsOrNegationOfSymbols xs
+justSymbolsOrNegationOfSymbols ((Enot (Esym _)):xs) = justSymbolsOrNegationOfSymbols xs
+justSymbolsOrNegationOfSymbols (_:xs) = False
 
 eliminateTrue :: [Expr] -> [[Expr]] -> Expr
 eliminateTrue trueSymbols maxterms =
     let trueEliminations   = eliminationsTrue trueSymbols maxterms
         eliminatedMaxterms = map snd trueEliminations
-    in  Eand $ map Eor $ maxterms \\ eliminatedMaxterms
+        result             = maxterms \\ eliminatedMaxterms
+    in  if   length result > 1
+        then Eand $ map Eor result
+        else Eor  $ head result
 
 eliminationsTrue :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
 eliminationsTrue _ [] = []
@@ -155,9 +193,13 @@ eliminateFalse :: [Expr] -> [[Expr]] -> Expr
 eliminateFalse falseSymbols minterms =
     let falseEliminations  = eliminationsFalse falseSymbols minterms
         eliminatedMinterms = map snd falseEliminations
-    in  Eor $ map Eand $ minterms \\ eliminatedMinterms
+        result             = minterms \\ eliminatedMinterms
+    in  if   length result > 1
+        then Eor  $ map Eand result
+        else Eand $ head result
 
 eliminationsFalse :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
+eliminationsFalse _ [] = []
 eliminationsFalse falseSymbols (mt:minterms) =
     if   Efalse `elem` mt
     then eliminationsFalse falseSymbols minterms
@@ -292,7 +334,6 @@ eliminateXORdnf _ = Nothing
 eliminateAllXORdnf :: Expr -> Expr
 eliminateAllXORdnf = replace $ descend eliminateXORdnf eliminateAllXORdnf
 
--- TODO: undefined CHECK IF WORKS AS INTENDED!
 eliminateXORcnf :: Expr -> Maybe Expr
 eliminateXORcnf (Exor subexprs) =
     let lsubexprs = length subexprs
@@ -362,6 +403,71 @@ distributeORAND _ = Nothing
 
 distributeAllORAND :: Expr -> Expr
 distributeAllORAND = replace $ descend distributeORAND distributeAllORAND
+
+{- TODO: Too much code duplication in eliminate(ANAND, OROR, XORXOR, IFFIFF)
+functions, fix that!
+-}
+
+-- Remove nested ANDs (because it's associative)
+eliminateANDAND :: Expr -> Maybe Expr
+eliminateANDAND (Eand subexprs)
+    {- Since eliminateANDAND does not transform an Eand expression into
+    another expression of different type constructor, (descend) helper function
+    will descend (recurse) infinitely if we do not check -foremost- whether the
+    supplied Eand expression contains other Eand (sub-)expressions or not.
+    -}
+    | all (\se -> case se of Eand _ -> False; _ -> True) subexprs = Nothing
+    | otherwise =
+        Just $ Eand $ concatMap (\e ->
+            case e of
+                Eand e' -> e'
+                e' -> [e']
+        ) subexprs
+eliminateANDAND _ = Nothing
+
+eliminateAllANDAND :: Expr -> Expr
+eliminateAllANDAND = replace $ descend eliminateANDAND eliminateAllANDAND
+
+-- Remove nested ORs (because it's associative)
+eliminateOROR :: Expr -> Maybe Expr
+eliminateOROR (Eor subexprs)
+    | all (\se -> case se of Eor _ -> False; _ -> True) subexprs = Nothing
+    | otherwise =
+        Just $ Eor $ concatMap (\e ->
+            case e of
+                Eor e' -> e'
+                e' -> [e']
+        ) subexprs
+eliminateOROR _ = Nothing
+
+eliminateAllOROR :: Expr -> Expr
+eliminateAllOROR = replace $ descend eliminateOROR eliminateAllOROR
+
+-- Remove nested XORs (because it's associative)
+eliminateXORXOR :: Expr -> Maybe Expr
+eliminateXORXOR (Exor subexprs) =
+    Just $ Exor $ concatMap (\e ->
+        case e of
+            Exor e' -> e'
+            e' -> [e']
+    ) subexprs
+eliminateXORXOR _ = Nothing
+
+eliminateAllXORXOR :: Expr -> Expr
+eliminateAllXORXOR = replace $ descend eliminateXORXOR eliminateAllXORXOR
+
+-- Remove nested IFFs (because it's associative)
+eliminateIFFIFF :: Expr -> Maybe Expr
+eliminateIFFIFF (Eiff subexprs) =
+    Just $ Eiff $ concatMap (\e ->
+        case e of
+            Eiff e' -> e'
+            e' -> [e']
+    ) subexprs
+eliminateIFFIFF _ = Nothing
+
+eliminateAllIFFIFF :: Expr -> Expr
+eliminateAllIFFIFF = replace $ descend eliminateIFFIFF eliminateAllIFFIFF
 
 {- yield takes a function and an expression, and iterates over every single
 subexpression of the expression (including the expression itself), calling the
