@@ -15,6 +15,7 @@ THIS SOFTWARE.
 -}
 module Expression where
 
+import Control.Monad
 import Data.List
 import Debug.Trace
 import Test.QuickCheck
@@ -33,6 +34,16 @@ data Expr = Enot Expr
           | Efalse
     deriving Eq
 
+isSymbol :: Expr -> Bool
+isSymbol (Esym _) = True
+isSymbol Etrue    = True
+isSymbol Efalse   = True
+isSymbol _ = False
+
+isNegSymbol :: Expr -> Bool
+isNegSymbol (Enot subexpr) = isSymbol subexpr
+isNegSymbol _ = False
+
 instance Show Expr where
     show (Enot se) = '!' : show se
     show (Eimp cond cons) = parens $ show cond ++ " => " ++ show cons
@@ -47,43 +58,23 @@ instance Show Expr where
 
 -- TODO: I don't think this is a "high quality" one...
 instance Arbitrary Expr where
-    arbitrary =
-        let
-            -- TODO: Isn't there a better way to indicate that x is an Int for
-            -- God's sake!?
-            definitelyInt :: Int -> Int
-            definitelyInt x = x
-        in do { x <- arbitrary;
-              ; case definitelyInt x `mod` 6 of
-                    0 -> do { subexpr <- arbitrary
-                            ; return $ Enot subexpr }
-                    1 -> do { cond <- arbitrary
-                            ; cons <- arbitrary
-                            ; return $ Eimp cond cons }
-                    2 -> do { cond <- arbitrary
-                            ; cons <- arbitrary
-                            ; alt  <- arbitrary
-                            ; return $ Eite cond cons alt }
-                    3 -> do { subexprs <- arbitrary
-                            ; return $ Eand subexprs }
-                    4 -> do { subexprs <- arbitrary
-                            ; return $ Eor subexprs }
-                    5 -> do { subexprs <- arbitrary
-                            ; return $ Exor subexprs }
-                    6 -> do { subexprs <- arbitrary
-                            ; return $ Eiff subexprs }
-                    {- TODO: Why only A,B,C,D,E? We would like some symbols to
-                    appear multiple times in an expression so that we can test
-                    some more complicated cases.
-                    -}
-                    7 -> do { i <- arbitrary
-                            ; return $ Esym $ ["A", "B", "C", "D", "E"] !! (i `mod` 5) }
-                    8 -> return Etrue
-                    9 -> return Efalse
-
-                }
-prop_deneme :: Expr -> Bool
-prop_deneme expr = not $ null $ trace (show expr ++ "\n") $ show expr
+    arbitrary = sized prop
+        where
+            prop n | n <= 0     = atom
+                   | otherwise  = oneof [ atom
+                                        , liftM  Enot subform
+                                        , liftM2 Eimp subform subform
+                                        , liftM3 Eite subform' subform' subform'
+                                        , liftM  Eand $ vectorOf 4 subform
+                                        , liftM  Eor  $ vectorOf 4 subform
+                                        , liftM  Exor $ vectorOf 4 subform
+                                        , liftM  Eiff $ vectorOf 4 subform
+                                        ]
+                    where
+                        atom = oneof [liftM Esym (elements ["P", "Q", "R", "S", "T"]),
+                                        elements [Etrue, Efalse]]
+                        subform  = prop (n `div` 8)
+                        subform' = prop (n `div` 16)
 
 -- SET: Sub-Expression Tree
 data SET = SET Expr [SET] deriving Eq

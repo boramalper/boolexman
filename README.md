@@ -2,6 +2,13 @@ boolexman
 =========
 *__boolean expression manipulator__ for educational purposes*
 
+__POSTMORTEM:__
+
+I got stuck at the very trivial-seeming task of distributing ANDs and ORs over
+each other, indeed I might have cracked the problem, but now I also do suffer
+from performance problems
+
+
 
 quick manual:
           help

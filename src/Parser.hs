@@ -13,7 +13,7 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-module Parser (normalize, parse, splitTopOn, parseAll, parseCsSymbols) where
+module Parser (normalize, parse, mustParse, splitTopOn, parseAll, parseCsSymbols) where
 
 import Data.Char (isAlphaNum, isSpace, isUpper)
 import Data.List
@@ -63,6 +63,11 @@ parse s
                     recurse parsers
                 else
                     Left $ err ++ "\n  • In the expression:\n      " ++ trimPreceding ' ' s
+
+mustParse :: String -> Expr
+mustParse s = case parse s of
+    Left  err -> error err
+    Right ex' -> ex'
 
 {- show Expr is generous with parantheses and therefore this test might be too
 merciful on some edge cases relating to operator precedence, but hey, it's still
