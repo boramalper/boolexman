@@ -79,8 +79,8 @@ instance Arbitrary Expr where
 -- SET: Sub-Expression Tree
 data SET = SET Expr [SET] deriving Eq
 
-flatten :: SET -> [Expr]
-flatten (SET expr sets) = nub $ expr : concatMap flatten sets
+flattenSET:: SET -> [Expr]
+flattenSET (SET expr sets) = nub $ expr : concatMap flattenSET sets
 
 data EvalResult = EvalResult { redundantTrueSymbols  :: [Expr]
                              , redundantFalseSymbols :: [Expr]

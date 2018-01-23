@@ -38,7 +38,7 @@ viewSubexpressions set =
     ++ concatMap (\l -> "  " ++ l ++ "\n") (lines $ showSET set)
     ++ "\n\n"
     ++ bold "Sub-Expression List:\n"
-    ++ prettifyList (map show $ flatten set)
+    ++ prettifyList (map show $ flattenSET set)
 
 viewSymbols :: [Expr] -> String
 viewSymbols ss =
@@ -47,37 +47,29 @@ viewSymbols ss =
 
 viewCNF :: [([(Expr, Expr)], Expr)] -> String
 viewCNF ts =
-        bold "First eliminate ITE:\n"
+        bold "0 - First eliminate ITE:\n"
      ++ prettifyList (map showPair $ fst (ts !! 0))
      ++ "After all:\n    " ++ show (snd $ ts !! 0)
      ++ "\n\n"
-     ++ bold "Then eliminate IFF:\n"
+     ++ bold "1 - Then eliminate IFF:\n"
      ++ prettifyList (map showPair $ fst (ts !! 1))
      ++ "After all:\n    " ++ show (snd $ ts !! 1)
      ++ "\n\n"
-     ++ bold "Then eliminate IMP:\n"
+     ++ bold "2 - Then eliminate IMP:\n"
      ++ prettifyList (map showPair $ fst (ts !! 2))
      ++ "After all:\n    " ++ show (snd $ ts !! 2)
      ++ "\n\n"
-     ++ bold "Then distribute NOTs:\n"
+     ++ bold "3 - Then eliminate XORs:\n"
      ++ prettifyList (map showPair $ fst (ts !! 3))
      ++ "After all:\n    " ++ show (snd $ ts !! 3)
      ++ "\n\n"
-     ++ bold "eliminate subexpressions of form (Enot $ Exor _):\n"
+     ++ bold "4- Then distribute NOTs:\n"
      ++ prettifyList (map showPair $ fst (ts !! 4))
      ++ "After all:\n    " ++ show (snd $ ts !! 4)
      ++ "\n\n"
-     ++ bold "eliminate subexpressions of form (Exor _):\n"
+     ++ bold "5 - Distribute ORs over ANDs:\n"
      ++ prettifyList (map showPair $ fst (ts !! 5))
      ++ "After all:\n    " ++ show (snd $ ts !! 5)
-     ++ "\n\n"
-     ++ bold "Then distribute NOTs once again:\n"
-     ++ prettifyList (map showPair $ fst (ts !! 6))
-     ++ "After all:\n    " ++ show (snd $ ts !! 6)
-     ++ "\n\n"
-     ++ bold "Distribute OR over AND\n"
-     ++ prettifyList (map showPair $ fst (ts !! 7))
-     ++ "After all:\n    " ++ show (snd $ ts !! 7)
      ++ "\n"
 
 viewDNF :: [([(Expr, Expr)], Expr)] -> String

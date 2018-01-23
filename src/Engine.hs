@@ -59,24 +59,22 @@ toCNF :: Expr -> [([(Expr, Expr)], Expr)]
 toCNF expr =
     let
     -- 0. Eliminate all if-then-else (ITE) subexpressions
-        (eITE, pITE) = (eliminationsITE        expr,  eliminateAllITE       expr)
+        (eITE, pITE) = (nub $ eliminationsITE        expr,  canonical $ eliminateAllITE    expr)
     -- 1. Eliminate all if-and-only-if (IFF) subexpressions
-        (eIFF, pIFF) = (eliminationsIFF        pITE,  eliminateAllIFF       pITE)
+        (eIFF, pIFF) = (nub $ eliminationsIFF        pITE,  canonical $ eliminateAllIFF    pITE)
     -- 2. Eliminate all implies (IMP) subexpressions
-        (eIMP, pIMP) = (eliminationsIMP        pIFF,  eliminateAllIMP       pIFF)
-    -- 3. Distribute NOTs
-        (dNOT, pNOT) = (distributionsNOT       pIMP,  distributeAllNOT      pIMP)
-    -- 4. Eliminate all subexpressions of form (Enot (Exor _))
-        (eCNF, pCNF) = (eliminationsNOTXORcnf  pNOT,  eliminateAllNOTXORcnf pNOT)
-    -- 5. Eliminate all XOR subexpressions
-        (eDNF, pDNF) = (eliminationsXORcnf     pCNF,  eliminateAllXORcnf    pCNF)
-    -- 6. Distribute NOTs
-        (dNT2, pNT2) = (distributionsNOT       pDNF,  distributeAllNOT      pDNF)
-    -- 7. Distribute ANDs over ORs
-        (dOAN, pOAN) = (distributionsORAND     pNT2,  distributeAllORAND    pNT2)
+        (eIMP, pIMP) = (nub $ eliminationsIMP        pIFF,  canonical $ eliminateAllIMP    pIFF)
+    -- 3. Eliminate all exclusive-org XOR subexpressions
+        (eDNF, pDNF) = (nub $ eliminationsXORcnf     pIMP,  canonical $ eliminateAllXORcnf pIMP)
+    -- 4. Distribute NOTs
+        (dNT2, pNT2) = (nub $ distributionsNOT       pDNF,  canonical $ distributeAllNOT   pDNF)
+    -- 5. Distribute ORs over ANDs
+        (dOAN, pOAN) = (nub $ distributionsORAND     pNT2,  canonical $ distributeORAND    pNT2)
     in
-        [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (dNOT, pNOT), (eCNF, pCNF),
-        (eDNF, pDNF), (dNT2, pNT2), (dOAN, pOAN)]
+        [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (eDNF, pDNF), (dNT2, pNT2), (dOAN, pOAN)]
+
+prop_toCNF :: Expr -> Bool
+prop_toCNF = isCNF . snd . last . toCNF
 
 {- toDNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
 first element is (another list of tuples whose first element is the
@@ -84,104 +82,116 @@ subexpression before the predefined transformation and whose second element is
 the self-same subexpression after the transformation), and whose second element
 is resultant expression E' that is equivalent to E.
 -}
-
-{--
-data Expr = Enot Expr
-          | Eor  [Expr]
-          | Eand [Expr]
-          | Esym String
-          | Etrue
-          | Efalse
-          | Eimp Expr Expr      GONE
-          | Eite Expr Expr Expr GONE
-          | Exor [Expr]         GONE
-          | Eiff [Expr]         GONE
--}
-
 toDNF :: Expr -> [([(Expr, Expr)], Expr)]
 toDNF expr =
     let
     -- 0. Eliminate all if-then-else (ITE) subexpressions
-        (eITE, pITE) = (nub $ eliminationsITE        expr,  eliminateAllITE       expr)
+        (eITE, pITE) = (nub $ eliminationsITE    expr,  canonical $ eliminateAllITE    expr)
     -- 1. Eliminate all if-and-only-if (IFF) subexpressions
-        (eIFF, pIFF) = (nub $ eliminationsIFF        pITE,  eliminateAllIFF       pITE)
+        (eIFF, pIFF) = (nub $ eliminationsIFF    pITE,  canonical $ eliminateAllIFF    pITE)
     -- 2. Eliminate all implies (IMP) subexpressions
-        (eIMP, pIMP) = (nub $ eliminationsIMP        pIFF,  eliminateAllIMP       pIFF)
-    -- 3. eliminate XOR
-        (eDNF, pDNF) = (nub $ eliminationsXORdnf     pIMP,  eliminateAllXORdnf    pIMP)
-    -- 4. distribute NOTS
-        (dNOT, pNOT) = (nub $ distributionsNOT pDNF,  distributeAllNOT      pDNF)
-    -- 5.
-        (dAOR, pAOR) = ([],  essentialise $ flattenORs $ flattenANDs $ distributeANDOR2 pNOT)
+        (eIMP, pIMP) = (nub $ eliminationsIMP    pIFF,  canonical $ eliminateAllIMP    pIFF)
+    -- 3. Eliminate all exclusive-or (XOR) subexpressions
+        (eDNF, pDNF) = (nub $ eliminationsXORcnf pIMP,  canonical $ eliminateAllXORcnf pIMP)
+    -- 4. Distribute NOTs
+        (dNOT, pNOT) = (nub $ distributionsNOT   pDNF,  canonical $ distributeAllNOT   pDNF)
+    -- 5. Distribute ANDs over ORs
+        (dAOR, pAOR) = ([],  canonical $ distributeANDOR pNOT)
     in
         [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (eDNF, pDNF), (dNOT, pNOT), (dAOR, pAOR)]
 
--- removes redundancy from
-essentialise :: Expr -> Expr
-essentialise (Eand subexprs) = case nub $ map essentialise subexprs of
+prop_toDNF :: Expr -> Bool
+prop_toDNF = isDNF . snd . last . toDNF
+
+canonical :: Expr -> Expr
+canonical = removeRedundancy . flatten
+
+{- Removes *syntactically* redundant (i.e. repeating) subexpressions in AND, OR,
+XOR, IFF expressions, such as:
+
+  (A and B and C) or (A and B and C) or (G and H)
+  ^~~~~~~~~~~~~~^
+   syntactically
+     redundant
+
+HOWEVER, it does not remove/eliminate semantically redundant subexpressions such
+as:
+
+  (A and B and C) or (A and B)
+  ^~~~~~~~~~~~~~^
+    semantically
+     redundant
+
+TODO: write a function to remove semantically redundant subexpressions (in DNF
+and CNF forms).
+-}
+removeRedundancy :: Expr -> Expr
+removeRedundancy (Eand subexprs) = case nub $ map removeRedundancy subexprs of
     [x] -> x
     subexprs' -> Eand subexprs'
-essentialise (Eor subexprs) = case nub $ map essentialise subexprs of
+removeRedundancy (Eor subexprs) = case nub $ map removeRedundancy subexprs of
     [x] -> x
     subexprs' -> Eor subexprs'
-essentialise expr = expr
+removeRedundancy expr = expr
 
-toDNFfast :: Expr -> Expr
-toDNFfast = essentialise . flattenORs . flattenANDs . distributeANDOR2 . distributeAllNOT . eliminateAllXORdnf . eliminateAllIMP . eliminateAllIFF . eliminateAllITE
-
-distributeANDOR2 :: Expr -> Expr
-distributeANDOR2 (Eand subexprs) =
+distributeANDOR :: Expr -> Expr
+distributeANDOR (Eand subexprs) =
     let orSubexprs    = filter (\se -> case se of Eor _ -> True; _ -> False) subexprs
         nonOrSubexprs = filter (`notElem` orSubexprs) subexprs
     in  if   null orSubexprs
-        then let subexprs' = map distributeANDOR2 subexprs
-                 orExpressionsInside = any (\se -> case se of Eor _ -> True; _ -> False) subexprs' --Eand $ map distributeANDOR2 subexprs -- recurse here!
+        then let subexprs' = map distributeANDOR subexprs
+                 orExpressionsInside = any (\se -> case se of Eor _ -> True; _ -> False) subexprs'
              in  if   orExpressionsInside
-                 then distributeANDOR2 $ Eand subexprs'
+                 then distributeANDOR $ Eand subexprs'
                  else Eand subexprs'
-        else Eor  $ map (\x -> distributeANDOR2 $ Eand $ nonOrSubexprs ++ x) (combine $ map (\(Eor x) -> x) orSubexprs)
-distributeANDOR2 (Enot subexpr) = distributeANDOR2 subexpr
-distributeANDOR2 (Eor subexprs) = Eor $ map distributeANDOR2 subexprs
-distributeANDOR2 expr = expr
+        else Eor  $ map (\x -> distributeANDOR $ Eand $ nonOrSubexprs ++ x) (combine $ map (\(Eor x) -> x) orSubexprs)
+distributeANDOR (Enot subexpr) = distributeANDOR subexpr
+distributeANDOR (Eor subexprs) = Eor $ map distributeANDOR subexprs
+distributeANDOR expr = expr
 
-distributeORAND :: Expr -> Maybe Expr
+distributeORAND :: Expr -> Expr
 distributeORAND (Eor subexprs) =
-    let andSubexprs = filter (\se -> case se of Eand _ -> True; _ -> False) subexprs
+    let andSubexprs    = filter (\se -> case se of Eand _ -> True; _ -> False) subexprs
         nonAndSubexprs = filter (`notElem` andSubexprs) subexprs
-    in
-        if not $ null andSubexprs then
-            Just $ Eand $ map (\x -> Eor $ nonAndSubexprs ++ x) (combine $ map (\(Eand x) -> x) andSubexprs)
-        else
-            Nothing
-distributeORAND _ = Nothing
+    in  if   null andSubexprs
+        then let subexprs' = map distributeORAND subexprs
+                 andExpressionsInside = any (\se -> case se of Eand _ -> True; _ -> False) subexprs'
+             in  if   andExpressionsInside
+                 then distributeORAND $ Eor subexprs'
+                 else Eor subexprs'
+        else Eand  $ map (\x -> distributeORAND $ Eor $ nonAndSubexprs ++ x) (combine $ map (\(Eand x) -> x) andSubexprs)
+distributeORAND (Enot subexpr) = distributeORAND subexpr
+distributeORAND (Eand subexprs) = Eand $ map distributeORAND subexprs
+distributeORAND expr = expr
 
-distributeAllORAND :: Expr -> Expr
-distributeAllORAND = replace distributeORAND
-
-prop_toDNF :: Expr -> Bool
-prop_toDNF = isDNF . toDNFfast
-
--- flatten nested ANDs
--- TODO: WARNING! this is a partial function! (to be used during DNF/CNF)
-flattenANDs :: Expr -> Expr
-flattenANDs (Eand subexprs) = Eand $ concatMap (
+-- flatten nested expressions
+-- TODO: can we reduce the redundancy here?
+flatten :: Expr -> Expr
+flatten (Eand subexprs) = Eand $ concatMap (
     \se -> case se of
         Eand subexprs' -> subexprs'
         _ -> [se]
-    ) $ map flattenANDs subexprs
-flattenANDs (Eor  subexprs) = Eor  $ map flattenANDs subexprs
-flattenANDs (Enot subexpr)  = Enot $ flattenANDs subexpr
-flattenANDs expr = expr
-
-flattenORs :: Expr -> Expr
-flattenORs (Eor subexprs) = Eor $ concatMap (
+    ) $ map flatten subexprs
+flatten (Eor subexprs) = Eor $ concatMap (
     \se -> case se of
         Eor subexprs' -> subexprs'
         _ -> [se]
-    ) $ map flattenORs subexprs
-flattenORs (Eand subexprs) = Eand $ map flattenORs subexprs
-flattenORs (Enot subexpr)  = Enot $ flattenORs subexpr
-flattenORs expr = expr
+    ) $ map flatten subexprs
+flatten (Exor subexprs) = Exor $ concatMap (
+    \se -> case se of
+        Exor subexprs' -> subexprs'
+        _ -> [se]
+    ) $ map flatten subexprs
+flatten (Eiff subexprs) = Eiff $ concatMap (
+    \se -> case se of
+        Eiff subexprs' -> subexprs'
+        _ -> [se]
+    ) $ map flatten subexprs
+flatten (Eimp cond cons) = Eimp (flatten cond) (flatten cons)
+flatten (Eite cond cons alt) = Eite (flatten cons) (flatten cons) (flatten alt)
+flatten (Enot subexpr)  = Enot $ flatten subexpr
+flatten expr | isSymbol expr = expr
+             | otherwise     = error "programmer error! update flatten for new non-symbols!"
 
 {- eval, given a list of true symbols, false symbols, and an expression, returns
 a tuple where the first element of the tuple is a another tuple of list of
@@ -210,19 +220,23 @@ eval trueSymbols falseSymbols expr =
                    , postFalseElimination  = eliminateFalse falseSymbols sop
                    }
 
-isCNF :: Expr -> Bool
-isCNF (Eor xs)  =    justSymbolsOrNegationOfSymbols xs
-isCNF (Eand xs) =    justSymbolsOrNegationOfSymbols xs
-                  || all (\(Eor x) -> justSymbolsOrNegationOfSymbols x) xs
-
 isDNF :: Expr -> Bool
 isDNF (Eand xs) = all (\x -> isSymbol x || isNegSymbol x) xs
-isDNF (Eor xs)  = all (
+isDNF (Eor  xs) = all (
     \x -> isSymbol x || isNegSymbol x || case x of
         Eand xs' -> all (\x' -> isSymbol x' || isNegSymbol x') xs'
-        _ -> False
+        _        -> False
     ) xs
 isDNF x = isSymbol x || isNegSymbol x
+
+isCNF :: Expr -> Bool
+isCNF (Eor  xs) = all (\x -> isSymbol x || isNegSymbol x) xs
+isCNF (Eand xs) = all (
+    \x -> isSymbol x || isNegSymbol x || case x of
+        Eor xs' -> all (\x' -> isSymbol x' || isNegSymbol x') xs'
+        _       -> False
+    ) xs
+isCNF x = isSymbol x || isNegSymbol x
 
 flattenCNF :: Expr -> [[Expr]]
 flattenCNF expr
@@ -237,14 +251,6 @@ flattenDNF expr
     | otherwise = case expr of
         Eand xs -> [xs]
         Eor  xs -> map (\x -> case x of Eand x' -> x'; x' -> [x']) xs
-
-justSymbolsOrNegationOfSymbols :: [Expr] -> Bool
-justSymbolsOrNegationOfSymbols []= True
-justSymbolsOrNegationOfSymbols (Esym _ : xs) = justSymbolsOrNegationOfSymbols xs
-justSymbolsOrNegationOfSymbols ((Enot (Esym _)):xs) = justSymbolsOrNegationOfSymbols xs
-justSymbolsOrNegationOfSymbols (Etrue : xs) = justSymbolsOrNegationOfSymbols xs
-justSymbolsOrNegationOfSymbols (Efalse : xs) = justSymbolsOrNegationOfSymbols xs
-justSymbolsOrNegationOfSymbols (_:xs) = False
 
 eliminateTrue :: [Expr] -> [[Expr]] -> Expr
 eliminateTrue trueSymbols maxterms =
@@ -422,26 +428,6 @@ negateIn (x:xs) neg =
         x : negateIn xs neg
 negateIn [] _ = []
 
-eliminateNOTXORcnf :: Expr -> Maybe Expr
-eliminateNOTXORcnf (Enot subexpr@(Exor _)) =
-    let Just expr' = eliminateXORdnf subexpr
-    in  Just $ distributeAllNOT $ Enot expr'
-eliminateNOTXORcnf _ = Nothing
-
-eliminateAllNOTXORcnf :: Expr -> Expr
-eliminateAllNOTXORcnf = replace eliminateNOTXORcnf
-
-eliminateNOTXORdnf :: Expr -> Maybe Expr
-eliminateNOTXORdnf (Enot subexpr@(Exor _)) =
-    let Just expr' = eliminateXORcnf subexpr
-    in  Just $ distributeAllNOT $ Enot expr'
-eliminateNOTXORdnf _ = Nothing
-
-eliminateAllNOTXORdnf :: Expr -> Expr
-eliminateAllNOTXORdnf = replace eliminateNOTXORdnf
-
-
-{-
 {- yield takes a function and an expression, and iterates over every single
 subexpression of the expression (including the expression itself), calling the
 supplied function each time. If the supplied function returns Just an
@@ -451,26 +437,6 @@ both cases the iteration will continue for all subexpressions.
 
 yield is a "template" for all kinds of eliminations* functions.
 -}
-yield :: (Expr -> Maybe a) -> Expr -> [a]
-yield func expr@(Enot subexpr) =
-    maybeToList (func expr) ++ yield func subexpr
-yield func expr@(Eimp cond cons) =
-    maybeToList (func expr) ++ yield func cond ++ yield func cons
-yield func expr@(Eite cond cons alt) =
-    maybeToList (func expr) ++ yield func cond ++ yield func cons ++ yield func alt
-yield func expr@(Eand subexprs) =
-    maybeToList (func expr) ++ concatMap (yield func) subexprs
-yield func expr@(Eor subexprs) =
-    maybeToList (func expr) ++ concatMap (yield func) subexprs
-yield func expr@(Exor subexprs) =
-    maybeToList (func expr) ++ concatMap (yield func) subexprs
-yield func expr@(Eiff subexprs) =
-    maybeToList (func expr) ++ concatMap (yield func) subexprs
-yield func expr@(Esym _) = maybeToList $ func expr
-yield func expr@Etrue    = maybeToList $ func expr
-yield func expr@Efalse   = maybeToList $ func expr
--}
-
 -- recurses/descends into all subexpressions by itself (switching to the new/transformed
 -- ones over the olds).
 yield :: (Expr -> Maybe Expr) -> Expr -> [(Expr, Expr)]
@@ -506,17 +472,11 @@ eliminationsXORdnf = yield eliminateXORdnf
 eliminationsXORcnf :: Expr -> [(Expr, Expr)]
 eliminationsXORcnf = yield eliminateXORcnf
 
-eliminationsNOTXORcnf :: Expr -> [(Expr, Expr)]
-eliminationsNOTXORcnf = yield eliminateNOTXORcnf
-
-eliminationsNOTXORdnf :: Expr -> [(Expr, Expr)]
-eliminationsNOTXORdnf = yield eliminateNOTXORdnf
-
 distributionsANDOR :: Expr -> [(Expr, Expr)]
 distributionsANDOR _ = [] --TODO
 
 distributionsORAND :: Expr -> [(Expr, Expr)]
-distributionsORAND = yield distributeORAND
+distributionsORAND _ = []
 
 {-
 EXAMPLE:
