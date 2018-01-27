@@ -39,7 +39,7 @@ loop no = do
         Nothing -> putStrLn "\nEOF received, quitting..."
         Just line -> unless (line == "quit") $ do
             addHistory line
-            viewLess $ process line
+            viewLess2 $ process line
             loop $ no + 1
     where
         formatNo :: Int -> Integer -> String

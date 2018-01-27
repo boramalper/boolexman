@@ -101,12 +101,13 @@ viewDNF ts =
 
 viewEval :: EvalResult -> String
 viewEval r =
+        (
         if   not (null (redundantTrueSymbols r)) || not (null (redundantFalseSymbols r))
         then    bold "ATTENTION: Some of the true/false symbols have not been found in the expression!\n"
              ++ (if not (null (redundantTrueSymbols  r)) then "Redundant True Symbols: "  ++ show (redundantTrueSymbols  r) else "")
              ++ (if not (null (redundantFalseSymbols r)) then "Redundant False Symbols: " ++ show (redundantFalseSymbols r) else "")
              ++ "\n\n"
-        else ""
+        else "")
      ++ bold "First transform into CNF:" ++ "\n"
      ++ show (cnf r) ++ "\n\n"
      ++ bold "Eliminate all maxterms which constains a true symbol:" ++ "\n"
@@ -126,8 +127,8 @@ showPair2 (sym, maxterm) = show maxterm ++ "\nis eliminated because " ++ show sy
 showPair :: (Expr, Expr) -> String
 showPair (orig, new) = show orig ++ "\nis transformed into\n" ++ show new
 
-viewLess :: String -> IO ()
-viewLess str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KN "
+viewLess2 :: String -> IO ()
+viewLess2 str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KN "
     where
         escape :: String -> String
         escape s = concat
@@ -137,6 +138,14 @@ viewLess str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KN "
                     '"' -> "\\\""
                     _ -> [c]
             | c <- s]
+
+viewLess3 :: String -> IO()
+viewLess3 str = do
+    (Just lessStdin, _, _, _) <- createProcess (proc "less" []) { std_in  = CreatePipe
+                                                                , std_out = Inherit
+                                                                }
+    hPutStr lessStdin str
+    hFlush lessStdin
 
 prettifyList :: [String] -> String
 prettifyList = concatMap (\x -> "  • " ++ foldr1 (\l r -> l ++ '\n' : replicate 4 ' ' ++ r) (splitOn "\n" x) ++ "\n")
