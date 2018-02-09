@@ -19,7 +19,29 @@ import Data.List.Split
 import System.IO
 import System.Process
 
+import Engine  -- TODO: this feels wrong! modularise Engine AND distinguish "commands" from other functionalities of the Engine!
 import Expression
+
+
+viewResolution :: Resolution -> String
+viewResolution res =    bold "inital step:\n"
+                     ++ prettifyList (map (pClause $ clauseStatuses res) $ initialStep res)   -- show (initialStep res)
+                     ++ "\n\n"
+                     ++ bold "resolution steps:\n"
+                     ++ prettifyList (map (uncurry $ ff $ clauseStatuses res) $ resolutionSteps res)
+                     ++ "\n"
+    where
+        ff :: [(Clause, ClauseStatus)] -> Resolvent -> Step -> String
+        ff dict resolvent step =    "-- " ++ show resolvent ++ " --------\n"
+                                 ++ prettifyList (map (pClause dict) step)
+
+        pClause :: [(Clause, ClauseStatus)] -> Clause -> String
+        pClause dict clause
+            | any (\(c, _) -> c == clause) dict = let [(_, status)] = [(c, s) | (c, s) <- dict, c == clause]
+                                                  in  case status of
+                                                      ResolvedBy resolvent -> show resolvent ++ show clause
+                                                      Striken -> "~" ++ strike (show clause) ++ "~"
+            | otherwise = show clause
 
 showSET :: SET -> String
 showSET = recurse 0
@@ -67,7 +89,7 @@ viewCNF ts =
      ++ prettifyList (map showPair $ fst (ts !! 4))
      ++ "After all:\n    " ++ show (snd $ ts !! 4)
      ++ "\n\n"
-     ++ bold "5 - Distribute ORs over ANDs:\n"
+     ++ bold "5 - ORs over ANDs:\n"
      ++ prettifyList (map showPair $ fst (ts !! 5))
      ++ "After all:\n    " ++ show (snd $ ts !! 5)
      ++ "\n"
@@ -111,24 +133,24 @@ viewEval r =
      ++ bold "First transform into CNF:" ++ "\n"
      ++ show (cnf r) ++ "\n\n"
      ++ bold "Eliminate all maxterms which constains a true symbol:" ++ "\n"
-     ++ prettifyList (map showPair2 $ trueEliminations r) ++ "\n\n"
+     ++ prettifyList (map (showPair2 "true") $ trueEliminations r) ++ "\n\n"
      ++ bold "After all:" ++ "\n"
      ++ show (postTrueElimination r) ++ "\n\n"
      ++ bold "Transform into DNF:" ++ "\n"
      ++ show (dnf r) ++ "\n\n"
      ++ bold "Eliminate all minterms which constains a false symbol:" ++ "\n"
-     ++ prettifyList (map showPair2 $ falseEliminations r) ++ "\n\n"
+     ++ prettifyList (map (showPair2 "false") $ falseEliminations r) ++ "\n\n"
      ++ bold "After all:" ++ "\n"
      ++ show (postFalseElimination r) ++ "\n\n"
 
-showPair2 :: (Expr, [Expr]) -> String
-showPair2 (sym, maxterm) = show maxterm ++ "\nis eliminated because " ++ show sym ++ " is true."
+showPair2 :: String -> (Expr, [Expr]) -> String
+showPair2 tf (sym, maxterm) = show maxterm ++ "\nis eliminated because " ++ show sym ++ " is " ++ tf ++ "."
 
 showPair :: (Expr, Expr) -> String
 showPair (orig, new) = show orig ++ "\nis transformed into\n" ++ show new
 
 viewLess2 :: String -> IO ()
-viewLess2 str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KN "
+viewLess2 str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KNS "
     where
         escape :: String -> String
         escape s = concat
@@ -148,7 +170,10 @@ viewLess3 str = do
     hFlush lessStdin
 
 prettifyList :: [String] -> String
-prettifyList = concatMap (\x -> "  • " ++ foldr1 (\l r -> l ++ '\n' : replicate 4 ' ' ++ r) (splitOn "\n" x) ++ "\n")
+prettifyList = concatMap (\x -> "  " ++ bold "•" ++ " " ++ foldr1 (\l r -> l ++ '\n' : replicate 4 ' ' ++ r) (splitOn "\n" x) ++ "\n")
 
 bold :: String -> String
 bold s = "\x1b[1m" ++ s ++ "\x1b[0m"
+
+strike :: String -> String
+strike s = "\x1b[9m" ++ s ++ "\x1b[0m"

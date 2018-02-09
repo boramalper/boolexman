@@ -48,13 +48,34 @@ instance Show Expr where
     show (Enot se) = '!' : show se
     show (Eimp cond cons) = parens $ show cond ++ " => " ++ show cons
     show (Eite cond cons alt) = parens $ show cond ++ " ? " ++ show cons ++ " : " ++ show alt
-    show (Eand es) = parens $ "" ++ (foldr1 (\a b -> a ++ " ^ " ++ b) $ map show es)
-    show (Eor es)  = parens $ "" ++ (foldr1 (\a b -> a ++ " v " ++ b) $ map show es)
-    show (Exor es) = parens $ "" ++ (foldr1 (\a b -> a ++ " + " ++ b) $ map show es)
+    show (Eand es) = parens $ "" ++ (foldr1 (\a b -> a ++  " ^ "  ++ b) $ map show es)
+    show (Eor es)  = parens $ "" ++ (foldr1 (\a b -> a ++  " v "  ++ b) $ map show es)
+    show (Exor es) = parens $ "" ++ (foldr1 (\a b -> a ++  " + "  ++ b) $ map show es)
     show (Eiff es) = parens $ "" ++ (foldr1 (\a b -> a ++ " <=> " ++ b) $ map show es)
     show (Esym sym) = sym
     show Etrue = "True"
     show Efalse = "False"
+
+-- helper functions
+eAND :: [Expr] -> Expr
+eAND []  = Etrue
+eAND [x] = x
+eAND subexprs = Eand subexprs
+
+eOR :: [Expr] -> Expr
+eOR []  = Efalse
+eOR [x] = x
+eOR subexprs = Eor subexprs
+
+eXOR :: [Expr] -> Expr
+eXOR subexprs
+    | length subexprs >= 2 = Exor subexprs
+    | otherwise = error "eXOR must have at least two subexpressions!"
+
+eIFF :: [Expr] -> Expr
+eIFF subexprs
+    | length subexprs >= 2 = Eiff subexprs
+    | otherwise = error "eIFF must have at least two subexpressions!"
 
 -- TODO: I don't think this is a "high quality" one...
 instance Arbitrary Expr where

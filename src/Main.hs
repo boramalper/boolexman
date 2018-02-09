@@ -125,7 +125,7 @@ process s =
                      ++ "  sure you enclose the expression in parantheses)"
                 else case parse argument of
                     Left err  -> "Parsing Error: " ++ err
-                    Right exp -> "riiight"
+                    Right exp -> viewResolution $ resolve exp
         "prove" ->
             let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
             in  if   null expression

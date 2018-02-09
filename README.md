@@ -17,7 +17,7 @@ quick manual:
 
     DONE  symbols ((P and Q and R) or (S implies T))
 
-          eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
+    DONE  eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
 
     DONE  toDNF ((P and Q and R) or (S implies T))
     DONE  toCNF ((P and Q and R) or (S implies T))

@@ -30,6 +30,7 @@ WARNING:
   It will err on special symbols True and False! This is intentional.
 -}
 parseCsSymbols :: String -> Either ParsingError [Expr]
+parseCsSymbols []  = Right []
 parseCsSymbols str =
     case parseAll $ splitOn "," $ removeSpaces $ normalize str of
         Left err -> Left err
