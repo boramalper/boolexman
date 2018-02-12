@@ -21,7 +21,7 @@ import System.IO
 import System.Console.Readline
 import Text.Regex.TDFA
 
-import Engine
+import Engine.Commands
 import Parser
 import View
 

@@ -60,7 +60,7 @@ executable boolexman
   -- other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.9 && <4.10
+  build-depends:       base >=4.8 && <4.10
                      , readline >= 1.0.3.0 && == 1.0.*
                      , regex-pcre-builtin >= 0.94.4.8.8.35 && == 0.94.*
                      , QuickCheck >= 2.9.2 && == 2.*
