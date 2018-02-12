@@ -123,14 +123,6 @@ process s =
                 else case parse argument of
                     Left err  -> "Parsing Error: " ++ err
                     Right exp -> viewResolution $ resolve exp
-        "prove" ->
-            let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
-            in  if   null expression
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expression in parantheses)"
-                else case parse argument of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> "riiight"
         "entail" -> -- ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
             let (_, _, _, expressions) = argument =~ (expressionCRE ++ " " ++ expressionCRE)
                                          :: (String, String, String, [String])
@@ -140,6 +132,5 @@ process s =
                 else case parseAll expressions of
                     Left err  -> "Parsing Error: " ++ err
                     Right exp -> show $ entail (exp !! 0) (exp !! 1)
-
         command ->
             "Error: Unknown command!"

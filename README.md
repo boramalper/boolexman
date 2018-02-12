@@ -11,6 +11,8 @@ __TODO:__
 quick manual:
     DONE  quit
 
+          help
+
           tabulate (P and Q and R or S implies T)
 
     DONE  subexpressions ((P and Q and R) or (S implies T))
@@ -24,7 +26,7 @@ quick manual:
 
     DONE  resolve (((P and Q and R) or (S implies T)))
 
-          entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
+    DONE  entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
 
 syntax:
 
