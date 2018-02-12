@@ -61,9 +61,6 @@ process s =
         -- symbolListCRE = "\\[(" ++ symbolRE ++ "(?: ?, ?" ++ symbolRE ++ ")*)\\]"
         symbolListCRE = "\\[(.*)\\]"
     in case command of
-        "help" ->
-            undefined
-
         "tabulate" ->
             let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
             in  if   null expression
@@ -142,7 +139,7 @@ process s =
                      ++ "  sure you enclose the expressions in parantheses)"
                 else case parseAll expressions of
                     Left err  -> "Parsing Error: " ++ err
-                    Right exp -> "riiight"
+                    Right exp -> show $ entail (exp !! 0) (exp !! 1)
 
         command ->
             "Error: Unknown command!"

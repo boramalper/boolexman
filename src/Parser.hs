@@ -20,7 +20,7 @@ import Data.List
 import Data.List.Split
 import Test.QuickCheck
 
-import Expression
+import DataTypes
 
 type ParsingError = String
 

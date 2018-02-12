@@ -5,10 +5,10 @@ boolexman
 __TODO:__
 * `prop_toCNF` and `prop_toDNF` are running very slowly, probably because of
   `toCNF` and `toDNF` are slow! Fix that.
+* Write manual!
+
 
 quick manual:
-          help
-
     DONE  quit
 
           tabulate (P and Q and R or S implies T)
@@ -22,9 +22,7 @@ quick manual:
     DONE  toDNF ((P and Q and R) or (S implies T))
     DONE  toCNF ((P and Q and R) or (S implies T))
 
-          resolve (((P and Q and R) or (S implies T)))
-
-          prove (((P and Q and R) or (S implies T)))  -- gentzen
+    DONE  resolve (((P and Q and R) or (S implies T)))
 
           entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
 

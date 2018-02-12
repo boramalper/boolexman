@@ -20,23 +20,70 @@ import Data.Maybe
 import Debug.Trace
 import Test.QuickCheck
 
-import Expression
+import DataTypes
 import Parser
+
 
 -------------------------------------------------
 
-type Clause = [Expr]
-type Step   = [Clause]
-type Resolvent = Expr
-data ClauseStatus = ResolvedBy Resolvent
-                  | Striken
-                  deriving Show
-type ResolutionSteps = [(Resolvent, Step)]
-type ClauseStatuses  = [(Clause, ClauseStatus)]
-data Resolution = Resolution { initialStep     :: Step
-                             , resolutionSteps :: ResolutionSteps
-                             , clauseStatuses  :: ClauseStatuses
-                             }
+entail :: Expr -> Expr -> EntailmentResult
+entail cond expr = let condPostITEelimination  = eliminateAllITE cond
+                       exprPostITEelimination = eliminateAllITE expr
+                   in  EntailmentResult { condITEeliminations    = eliminationsITE cond
+                                        , condPostITEelimination = condPostITEelimination
+                                        , exprITEeliminations    = eliminationsITE expr
+                                        , exprPostITEelimination = exprPostITEelimination
+                                        , entailment             = recurse [condPostITEelimination] [exprPostITEelimination]
+                       }
+    where
+        {-
+        data Entailment = I Line
+DONE                        | F Line  -- failure!
+DONE                        | Land Line Entailment
+DONE                        | Ror  Line Entailment
+DONE                        | Lor  Line [Entailment]
+DONE                        | Rand Line [Entailment]
+DONE                        | Limp Line Entailment Entailment
+DONE                        | Rimp Line Entailment
+DONE                        | Lnot Line Entailment
+DONE                        | Rnot Line Entailment
+
+TODO: I feel there might be an optimised way for these...
+                        | Lxor Line Entailment Entailment
+                        | Rxor Line Entailment Entailment
+                        | Liff Line Entailment Entailment
+                        | Riff Line Entailment Entailment
+        -}
+
+        recurse :: [Expr] -> [Expr] -> Entailment
+        recurse conds exprs
+            | any (`elem` conds) exprs = I $ Line conds exprs
+            | any isAND conds = let s@(Eand andSubexprs) = getBy isAND conds
+                                in  Land (Line conds exprs) $ recurse (delete s conds ++ andSubexprs) exprs
+            | any isOR  exprs = let s@(Eor orSubexprs) = getBy isOR exprs
+                                in  Ror (Line conds exprs) $ recurse conds (delete s exprs ++ orSubexprs)
+            | any isOR  conds = let s@(Eor orSubexprs) = getBy isOR conds
+                                    conds' = delete s conds
+                                in  Lor (Line conds exprs) $ map (\ose -> recurse (ose:conds') exprs) orSubexprs
+            | any isAND exprs = let s@(Eand andSubexprs) = getBy isAND exprs
+                                    exprs' = delete s exprs
+                                in  Rand (Line conds exprs) $ map (\ase -> recurse conds (ase:exprs')) andSubexprs
+            | any isIMP conds = let s@(Eimp cond cons) = getBy isIMP conds
+                                    conds' = delete s conds
+                                in  Limp (Line conds exprs) (recurse conds' (cond:exprs)) (recurse (cons:conds') exprs)
+            | any isIMP exprs = let s@(Eimp cond cons) = getBy isIMP exprs
+                                    exprs' = delete s exprs
+                                in  Rimp (Line conds exprs) $ recurse (cond:conds) (cons:exprs')
+            | any isNOT conds = let s@(Enot subexpr) = getBy isNOT conds
+                                in  Lnot (Line conds exprs) $ recurse (delete s conds) (subexpr:exprs)
+            | any isNOT exprs = let s@(Enot subexpr) = getBy isNOT exprs
+                                in  Rnot (Line conds exprs) $ recurse (subexpr:conds) (delete s exprs)
+            | otherwise = F (Line conds exprs)
+
+getBy :: (a -> Bool) -> [a] -> a
+getBy func = head . filter func
+
+-------------------------------------------------
 
 {-
 
@@ -45,8 +92,6 @@ EXAMPLES:
 
   resolve ((A or B or not D) and (!A or D or E) and (!A or !C or E) and (B or C or E) and (!B or D or !E))
   resolve ((A v B v !D) ^ (!A v D v E) ^ (!A v !C v E) ^ (B v C v E) ^ (!B v D v !E))
-
-  TODO: it doesn't show the empty set!!!!
   resolve ((A v B) ^ (A v !B v !C) ^ (!A v D) ^ (!B v C v D) ^ (!B v !D) ^ (!A v B v !D))
 
 -}

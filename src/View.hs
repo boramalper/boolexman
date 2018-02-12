@@ -19,21 +19,23 @@ import Data.List.Split
 import System.IO
 import System.Process
 
-import Engine  -- TODO: this feels wrong! modularise Engine AND distinguish "commands" from other functionalities of the Engine!
-import Expression
+import DataTypes
 
 
 viewResolution :: Resolution -> String
-viewResolution res =    bold "inital step:\n"
-                     ++ prettifyList (map (pClause $ clauseStatuses res) $ initialStep res)   -- show (initialStep res)
-                     ++ "\n\n"
-                     ++ bold "resolution steps:\n"
+viewResolution res =    bold "Resolution:"
+                     ++ "\n"
+                     ++ indent 4 (prettifyList (map (pClause $ clauseStatuses res) (initialStep res)))
+                     ++ "\n"
                      ++ prettifyList (map (uncurry $ ff $ clauseStatuses res) $ resolutionSteps res)
                      ++ "\n"
     where
         ff :: [(Clause, ClauseStatus)] -> Resolvent -> Step -> String
-        ff dict resolvent step =    "-- " ++ show resolvent ++ " --------\n"
+        ff dict resolvent step = bold ("──┤ " ++ show resolvent ++ " ├────────────\n")
                                  ++ prettifyList (map (pClause dict) step)
+
+        indent :: Int -> String -> String
+        indent i s = (foldr1 (\l r -> l ++ '\n' : r) $ map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n" -- foldr1 (\l r -> l ++ '\n' : replicate i ' ' ++ r) (splitOn "\n" s)
 
         pClause :: [(Clause, ClauseStatus)] -> Clause -> String
         pClause dict clause
