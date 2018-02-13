@@ -37,6 +37,9 @@ viewResolution res =    bold "Resolution:"
         indent :: Int -> String -> String
         indent i s = (foldr1 (\l r -> l ++ '\n' : r) $ map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n" -- foldr1 (\l r -> l ++ '\n' : replicate i ' ' ++ r) (splitOn "\n" s)
 
+        -- TODO
+        --    5> resolve (A ^ B ^ C ? D : A v B)
+        -- boolexman: src/View.hs:42:55-108: Irrefutable pattern failed for pattern [(_, status)]
         pClause :: [(Clause, ClauseStatus)] -> Clause -> String
         pClause dict clause
             | any (\(c, _) -> c == clause) dict = let [(_, status)] = [(c, s) | (c, s) <- dict, c == clause]

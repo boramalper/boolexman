@@ -13,12 +13,14 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-module Parser (normalize, parse, mustParse, splitTopOn, parseAll, parseCsSymbols) where
+module Parser (normaliseString, parse, mustParse, splitTopOn, parseAll, parseCsSymbols) where
 
 import Data.Char (isAlphaNum, isSpace, isUpper)
 import Data.List
 import Data.List.Split
 import Test.QuickCheck
+
+import qualified Safe as Safe
 
 import DataTypes
 
@@ -32,7 +34,7 @@ WARNING:
 parseCsSymbols :: String -> Either ParsingError [Expr]
 parseCsSymbols []  = Right []
 parseCsSymbols str =
-    case parseAll $ splitOn "," $ removeSpaces $ normalize str of
+    case parseAll $ splitOn "," $ removeSpaces $ normaliseString str of
         Left err -> Left err
         Right expressions -> if   all isSymbol expressions
                              then Right expressions
@@ -57,7 +59,7 @@ parse s
     where
         recurse :: [String -> Either ParsingError Expr] -> Either ParsingError Expr
         recurse [] = Left "could not parse the expression"
-        recurse (p:parsers) = case p $ normalize s of
+        recurse (p:parsers) = case p $ normaliseString s of
             Right expr -> Right expr
             Left  err  ->
                 if null err then
@@ -171,7 +173,7 @@ parseSYM s
     | s == "True"  = Right Etrue
     | s == "False" = Right Efalse
     | otherwise =
-        if isUpper $ head s then
+        if isUpper $ Safe.head s then
             if all isAlphaNum $ tail s then
                 Right $ Esym s
             else
@@ -204,23 +206,18 @@ EXAMPLE:
   ("A and B ", "<=>", " C <=> D")
 
 WARNING:
-  If a substring is the prefix of another, the substring that comes foremost
-  in the list will be considered as a match.
-  TODO: sort the substrings by length in descending order so it will match
-        the longest substring first!
-
   Also, not efficient at all, but as our professors once said in unanimity,
   "we are not concerned about efficiency here".
 -}
 locateFirst :: [String] -> String -> Maybe (String, String, String)
-locateFirst = recurse ""
+locateFirst substrs = recurse "" (sortOn length substrs)
     where
         recurse :: String -> [String] -> String -> Maybe (String, String, String)
         recurse _ _ [] = Nothing
         recurse consumed subs l@(c:left) =
             let hmm = [s | s <- subs, s `isPrefixOf` l]
             in  if   not $ null hmm
-                then Just (consumed, head hmm, drop (length (head hmm)) l)
+                then Just (consumed, Safe.head hmm, drop (length (Safe.head hmm)) l)
                 else recurse (consumed ++ [c]) subs left
 
 prefix :: (String, String, String) -> String
@@ -287,20 +284,19 @@ splitTopOn seps = recurse
                 [(pre, _, suf)] -> [pre, suf]
                 ((pre, mat, _):_) -> pre : (recurse $ drop (length pre + length mat) s)
 
-{- "normalize" the string by
+{- "normaliseString" the string by
 
    * converting all whitespace characters (e.g. '\t', '\n', ' ', ...) to the
      space character (i.e. ' ')
    * trim all preceding and trailing space characters
    * reduce continuous space characters into a single space character
 -}
-normalize :: String -> String
-normalize = trimParentheses . reduce . trimTrailing ' ' . trimPreceding ' ' . convert
+normaliseString :: String -> String
+normaliseString = trimParentheses . reduce . trimTrailing ' ' . trimPreceding ' ' . convert
     where
         -- convert all whitespace characters to the space character (' ')
         convert :: String -> String
-        convert [] = []
-        convert (x:xs) = (if isSpace x then ' ' else x) : convert xs
+        convert = map (\c -> if isSpace c then ' ' else c)
 
         -- reduce continuous space characters into a single space character
         reduce :: String -> String
@@ -334,6 +330,6 @@ trimParentheses []    = []
 trimParentheses s@[_] = s
 trimParentheses s =
     let mid = init $ tail s
-    in if   head s == '(' && last s == ')' && balanced mid
+    in if   Safe.head s == '(' && last s == ')' && balanced mid
        then trimParentheses mid
        else s

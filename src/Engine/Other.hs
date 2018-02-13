@@ -20,6 +20,8 @@ import Data.Maybe
 import Debug.Trace
 import Test.QuickCheck
 
+import qualified Safe as Safe
+
 import DataTypes
 import Parser
 import Utils (findOne)
@@ -72,7 +74,7 @@ evalCNF trueSymbols falseSymbols maxterms =
     let eliminatedMaxterms = map snd $ evaluationsCNF trueSymbols falseSymbols maxterms
         result = maxterms \\ eliminatedMaxterms
     in case result of
-        []  -> Etrue -- TODO: are we sure?
+        []  -> Etrue
         [x] -> orResult x
         _   -> eAND $ map orResult result
     where
@@ -96,7 +98,7 @@ evalDNF trueSymbols falseSymbols minterms =
     let eliminatedMinterms = map snd $ evaluationsDNF trueSymbols falseSymbols minterms
         result = minterms \\ eliminatedMinterms
     in case result of
-        []  -> Efalse -- TODO: are we sure?
+        []  -> Efalse
         [x] -> andResult x
         _   -> eOR $ map andResult result
     where
@@ -122,7 +124,7 @@ eliminateTrue trueSymbols maxterms =
         result             = maxterms \\ eliminatedMaxterms
     in  if   length result > 1
         then eAND $ map eOR result
-        else eOR  $ head result
+        else eOR  $ Safe.head result
 
 eliminationsTrue :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
 eliminationsTrue _ [] = []
@@ -141,7 +143,7 @@ eliminateFalse falseSymbols minterms =
         result             = minterms \\ eliminatedMinterms
     in  if   length result > 1
         then eOR  $ map eAND result
-        else eAND $ head result
+        else eAND $ Safe.head result
 
 eliminationsFalse :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
 eliminationsFalse _ [] = []

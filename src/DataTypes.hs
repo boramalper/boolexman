@@ -22,6 +22,7 @@ import Debug.Trace
 import Test.QuickCheck
 import Test.QuickCheck.Arbitrary
 
+import qualified Safe as Safe
 
 data Expr = Enot Expr
           | Eimp Expr Expr
@@ -52,7 +53,7 @@ isIMP _ = False
 
 --                  TURNSTILE
 --                     HERE
-data Line = Line [Expr]       [Expr] -- ([Expr]     ,     [Expr])
+data Line = Line [Expr]       [Expr]
 
 instance Show Line where
     show (Line conds exprs) = slist conds ++ " |- " ++ slist exprs
@@ -124,7 +125,7 @@ boxAppend padding strings =
         listOfFixedWidthLines = map (\lines' -> map (fixedWidth (longest lines')) lines') listOfLines :: [[String]]
         listOfSameHeightFixedWidthLines = map (fixedHeight (longest listOfFixedWidthLines)) listOfFixedWidthLines :: [[String]]
     in
-        foldr1 (\a b -> a ++ "\n" ++ b) $ map (\i -> append $ map (\x -> x !! i) listOfSameHeightFixedWidthLines) [0..length (head listOfSameHeightFixedWidthLines) - 1]
+        foldr1 (\a b -> a ++ "\n" ++ b) $ map (\i -> append $ map (\x -> x !! i) listOfSameHeightFixedWidthLines) [0..length (Safe.head listOfSameHeightFixedWidthLines) - 1]
     where
         append :: [String] -> String
         append = foldr1 (\a b -> a ++ padding ++ b)
@@ -134,7 +135,7 @@ boxAppend padding strings =
 
         fixedHeight :: Int -> [String] -> [String]
         fixedHeight height strs
-            | length strs <= height = replicate (height - length strs) (replicate (length $ head strs) ' ') ++ strs
+            | length strs <= height = replicate (height - length strs) (replicate (length $ Safe.head strs) ' ') ++ strs
             | otherwise = error "strs is taller than height!"
 
         fixedWidth :: Int -> String -> String
@@ -154,7 +155,7 @@ data EntailmentResult = EntailmentResult { condITEeliminations    :: [(Expr, Exp
                                          }
 
 instance Show EntailmentResult where
-    show (res) = show $ entailment res
+    show res = show $ entailment res
 
 -----------------------------------------
 type Clause = [Expr]
@@ -237,7 +238,7 @@ instance Arbitrary Expr where
 -- SET: Sub-Expression Tree
 data SET = SET Expr [SET] deriving Eq
 
-flattenSET:: SET -> [Expr]
+flattenSET :: SET -> [Expr]
 flattenSET (SET expr sets) = nub $ expr : concatMap flattenSET sets
 
 data EvalResult = EvalResult { redundantTrueSymbols  :: [Expr]

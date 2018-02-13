@@ -3,10 +3,11 @@ boolexman
 *__boolean expression manipulator__ for educational purposes*
 
 __TODO:__
+* entail (!True) (True => Q) fails!
+* write quickchecks for every single command!
+* Write manual!
 * `prop_toCNF` and `prop_toDNF` are running very slowly, probably because of
   `toCNF` and `toDNF` are slow! Fix that.
-* Write manual!
-
 
 quick manual:
     DONE  quit

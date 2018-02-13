@@ -16,11 +16,14 @@ THIS SOFTWARE.
 module Engine.Commands where
 
 import Data.List (nub, delete, (\\))
+import Test.QuickCheck
+
+import qualified Safe as Safe
 
 import DataTypes
 import Engine.Transformers
 import Engine.Other
-import Utils (cartesianProduct)
+import Utils (cartesianProduct, combinations)
 
 subexpressions :: Expr -> SET
 subexpressions e@(Enot se) = SET e [subexpressions se]
@@ -162,7 +165,7 @@ TODO: I feel there might be an optimised way for these...
         -}
 
         takeOne :: (a -> Bool) -> [a] -> a
-        takeOne f l = head $ takeWhile f l
+        takeOne f l = Safe.head $ takeWhile f l
 
         recurse :: [Expr] -> [Expr] -> Entailment
         recurse conds exprs
@@ -189,6 +192,34 @@ TODO: I feel there might be an optimised way for these...
                                 in  Rnot (Line conds exprs) $ recurse (subexpr:conds) (delete s exprs)
             | otherwise = F (Line conds exprs)
 
+prop_entail :: Expr -> Expr -> Bool
+-- for all evaluations that make cond true, expr must be true as well
+prop_entail cond expr = if   doesEntail $ entailment $ entail cond expr
+                        then all (\(ts, fs) -> if postFalseElimination (eval ts fs cond) == Etrue then postFalseElimination (eval ts fs expr) == Etrue else True) $ evaluations cond
+                        else True
+    where
+      doesEntail :: Entailment -> Bool
+      doesEntail (I _) = True
+      doesEntail (F _) = False
+      doesEntail (Land _ subent) = doesEntail subent
+      doesEntail (Ror  _ subent) = doesEntail subent
+      doesEntail (Rimp _ subent) = doesEntail subent
+      doesEntail (Lnot _ subent) = doesEntail subent
+      doesEntail (Rnot _ subent) = doesEntail subent
+      doesEntail (Limp _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
+      doesEntail (Lxor _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
+      doesEntail (Rxor _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
+      doesEntail (Liff _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
+      doesEntail (Riff _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
+      doesEntail (Lor  _ subents) = all doesEntail subents
+      doesEntail (Rand _ subents) = all doesEntail subents
+
+-- | for a given expression, returns a list of all possible true/false symbols
+evaluations :: Expr -> [([Expr], [Expr])]
+evaluations expr = let syms = symbols expr
+                   in  concatMap (\n -> let trueSymbols = combinations syms n
+                                  in  map (\ts -> (ts, syms \\ ts)) trueSymbols
+                           ) [0..length syms]
 
 --
 
@@ -239,7 +270,7 @@ resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
         findSuitableResolvent clauses = let symbols = nub $ concat clauses
                                             res     = filter (\sym -> any (sym `elem`) clauses && any (Enot sym `elem`) clauses) symbols
                                         in  if   not $ null res
-                                            then Just $ head res
+                                            then Just $ Safe.head res
                                             else Nothing
 
         shouldStrike :: Clause -> Bool

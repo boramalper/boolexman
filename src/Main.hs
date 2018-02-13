@@ -21,6 +21,8 @@ import System.IO
 import System.Console.Readline
 import Text.Regex.TDFA
 
+import qualified Safe as Safe
+
 import Engine.Commands
 import Parser
 import View
@@ -49,8 +51,8 @@ loop no = do
 
 process :: String -> String
 process s =
-    let s'       = normalize s
-        command  = head $ splitOn " " s'
+    let s'       = normaliseString s
+        command  = Safe.head $ splitOn " " s'
         argument = drop (length command + 1) s'  -- +1 for the space character
 
         -- CAPTURES the expression enclosed in parantheses
