@@ -124,7 +124,7 @@ eliminateTrue trueSymbols maxterms =
         result             = maxterms \\ eliminatedMaxterms
     in  if   length result > 1
         then eAND $ map eOR result
-        else eOR  $ Safe.head result
+        else eOR  $ Safe.head "OT 127" result
 
 eliminationsTrue :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
 eliminationsTrue _ [] = []
@@ -143,7 +143,7 @@ eliminateFalse falseSymbols minterms =
         result             = minterms \\ eliminatedMinterms
     in  if   length result > 1
         then eOR  $ map eAND result
-        else eAND $ Safe.head result
+        else eAND $ Safe.head "OT 146" result
 
 eliminationsFalse :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
 eliminationsFalse _ [] = []

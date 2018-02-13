@@ -56,7 +56,7 @@ removeRedundancy (Eand subexprs) = case nub $ map removeRedundancy subexprs of
     subexprs' -> eAND subexprs'
 removeRedundancy (Eor subexprs) = case nub $ map removeRedundancy subexprs of
     [x] -> x
-    subexprs' -> Eor subexprs'
+    subexprs' -> eOR subexprs'
 removeRedundancy expr = expr
 
 {- Removes trivial.
@@ -75,7 +75,7 @@ removeTriviality (Eor subexprs) =
       then Etrue
       else case subexprs' of
           [x] -> x
-          _   -> Eor subexprs'
+          _   -> eOR subexprs'
 removeTriviality expr = expr
 
 -- flatten nested expressions
@@ -102,7 +102,7 @@ flatten (Eiff subexprs) = eIFF $ concatMap (
         _ -> [se]
     ) $ map flatten subexprs
 flatten (Eimp cond cons) = Eimp (flatten cond) (flatten cons)
-flatten (Eite cond cons alt) = Eite (flatten cons) (flatten cons) (flatten alt)
+flatten (Eite cond cons alt) = Eite (flatten cond) (flatten cons) (flatten alt)
 flatten (Enot subexpr)  = Enot $ flatten subexpr
 flatten expr | isSymbol expr = expr
              | otherwise     = error "programmer error! update flatten for new non-symbols!"

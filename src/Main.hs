@@ -52,7 +52,7 @@ loop no = do
 process :: String -> String
 process s =
     let s'       = normaliseString s
-        command  = Safe.head $ splitOn " " s'
+        command  = Safe.head "MA 55" $ splitOn " " s'
         argument = drop (length command + 1) s'  -- +1 for the space character
 
         -- CAPTURES the expression enclosed in parantheses

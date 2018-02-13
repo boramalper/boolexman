@@ -173,7 +173,7 @@ parseSYM s
     | s == "True"  = Right Etrue
     | s == "False" = Right Efalse
     | otherwise =
-        if isUpper $ Safe.head s then
+        if isUpper $ Safe.head "PA 176" s then
             if all isAlphaNum $ tail s then
                 Right $ Esym s
             else
@@ -217,7 +217,7 @@ locateFirst substrs = recurse "" (sortOn length substrs)
         recurse consumed subs l@(c:left) =
             let hmm = [s | s <- subs, s `isPrefixOf` l]
             in  if   not $ null hmm
-                then Just (consumed, Safe.head hmm, drop (length (Safe.head hmm)) l)
+                then Just (consumed, Safe.head "PA 220" hmm, drop (length (Safe.head "PA 220 (2)" hmm)) l)
                 else recurse (consumed ++ [c]) subs left
 
 prefix :: (String, String, String) -> String
@@ -330,6 +330,6 @@ trimParentheses []    = []
 trimParentheses s@[_] = s
 trimParentheses s =
     let mid = init $ tail s
-    in if   Safe.head s == '(' && last s == ')' && balanced mid
+    in if   Safe.head "PA 333" s == '(' && last s == ')' && balanced mid
        then trimParentheses mid
        else s

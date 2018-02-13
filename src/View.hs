@@ -35,7 +35,7 @@ viewResolution res =    bold "Resolution:"
                                  ++ prettifyList (map (pClause dict) step)
 
         indent :: Int -> String -> String
-        indent i s = (foldr1 (\l r -> l ++ '\n' : r) $ map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n" -- foldr1 (\l r -> l ++ '\n' : replicate i ' ' ++ r) (splitOn "\n" s)
+        indent i s = (foldr1 (\l r -> l ++ '\n' : r) $ map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n"
 
         -- TODO
         --    5> resolve (A ^ B ^ C ? D : A v B)

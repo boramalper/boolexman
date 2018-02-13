@@ -16,6 +16,7 @@ THIS SOFTWARE.
 module Engine.Commands where
 
 import Data.List (nub, delete, (\\))
+import Debug.Trace
 import Test.QuickCheck
 
 import qualified Safe as Safe
@@ -164,8 +165,8 @@ TODO: I feel there might be an optimised way for these...
                         | Riff Line Entailment Entailment
         -}
 
-        takeOne :: (a -> Bool) -> [a] -> a
-        takeOne f l = Safe.head $ takeWhile f l
+        takeOne :: Show a => (a -> Bool) -> [a] -> a
+        takeOne f l = Safe.head "CM 168" $ [x | x <- l, f x]
 
         recurse :: [Expr] -> [Expr] -> Entailment
         recurse conds exprs
@@ -190,7 +191,7 @@ TODO: I feel there might be an optimised way for these...
                                 in  Lnot (Line conds exprs) $ recurse (delete s conds) (subexpr:exprs)
             | any isNOT exprs = let s@(Enot subexpr) = takeOne isNOT exprs
                                 in  Rnot (Line conds exprs) $ recurse (subexpr:conds) (delete s exprs)
-            | otherwise = F (Line conds exprs)
+            | otherwise       = F (Line conds exprs)
 
 prop_entail :: Expr -> Expr -> Bool
 -- for all evaluations that make cond true, expr must be true as well
@@ -213,13 +214,6 @@ prop_entail cond expr = if   doesEntail $ entailment $ entail cond expr
       doesEntail (Riff _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
       doesEntail (Lor  _ subents) = all doesEntail subents
       doesEntail (Rand _ subents) = all doesEntail subents
-
--- | for a given expression, returns a list of all possible true/false symbols
-evaluations :: Expr -> [([Expr], [Expr])]
-evaluations expr = let syms = symbols expr
-                   in  concatMap (\n -> let trueSymbols = combinations syms n
-                                  in  map (\ts -> (ts, syms \\ ts)) trueSymbols
-                           ) [0..length syms]
 
 --
 
@@ -270,8 +264,24 @@ resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
         findSuitableResolvent clauses = let symbols = nub $ concat clauses
                                             res     = filter (\sym -> any (sym `elem`) clauses && any (Enot sym `elem`) clauses) symbols
                                         in  if   not $ null res
-                                            then Just $ Safe.head res
+                                            then Just $ Safe.head "CM 273" res
                                             else Nothing
 
         shouldStrike :: Clause -> Bool
         shouldStrike exprs = any (\expr -> Enot expr `elem` exprs) exprs
+
+prop_resolve :: Expr -> Bool
+prop_resolve expr = satisfiable (resolve expr) == any (\(ts, fs) -> postFalseElimination (eval ts fs expr) == Etrue) (evaluations expr)
+    where
+        satisfiable :: Resolution -> Bool
+        satisfiable res = not ([[], [Efalse]] `elemN` (initialStep res) || any ([[], [Efalse]] `elemN`) (map snd (resolutionSteps res)))
+
+        elemN :: Eq a => [a] -> [a] -> Bool
+        elemN needles haystack = any (`elem` haystack) needles
+
+-- | for a given expression, returns a list of all possible true/false symbols
+evaluations :: Expr -> [([Expr], [Expr])]
+evaluations expr = let syms = symbols expr
+                   in  concatMap (\n -> let trueSymbols = combinations syms n
+                                  in  map (\ts -> (ts, syms \\ ts)) trueSymbols
+                           ) [0..length syms]

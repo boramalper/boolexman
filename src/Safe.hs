@@ -2,6 +2,6 @@ module Safe where
 
 import GHC.Stack
 
-head :: [a] -> a
-head (x:xs) = x
-head _      = errorWithStackTrace "sad sad sad"
+head :: String -> [a] -> a
+head s (x:xs) = x
+head s _      = error $ "head failed! " ++ s
