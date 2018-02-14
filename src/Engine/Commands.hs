@@ -133,6 +133,42 @@ eval trueSymbols falseSymbols expr =
                    , postFalseElimination  = evalDNF trueSymbols falseSymbols sop
                    }
 
+-- TODO: FOUND A BUG: (R <=> Q <=> True <=> True)
+prop_eval :: Expr -> Bool
+prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toExpr (evalS ts fs expr)) $ evaluations expr
+    where
+        toExpr :: Bool -> Expr
+        toExpr True  = Etrue
+        toExpr False = Efalse
+
+----
+
+-- strict eval!
+-- intended for testing `eval`, `toDNF`, and `toCNF` commands
+evalS :: [Expr] -> [Expr] -> Expr -> Bool
+evalS trueSymbols falseSymbols expr
+    |    all (\e -> isSymbol e && e `notElem` [Etrue, Efalse]) trueSymbols
+      && all (\e -> isSymbol e && e `notElem` [Etrue, Efalse]) falseSymbols
+      && all (\s -> (s `elem` trueSymbols) /= (s `elem` falseSymbols)) (symbols expr)
+      =
+        recurse expr
+    | otherwise = error "evalS failed!"
+    where
+        recurse :: Expr -> Bool
+        recurse     (Enot subexpr)       = not $ recurse subexpr
+        recurse     (Eimp cond cons)     = not (recurse cond) || recurse cons
+        recurse     (Eite cond cons alt) = (recurse cond && recurse cons) || (not (recurse cond) && recurse alt)
+        recurse     (Eand subexprs)      = all recurse subexprs
+        recurse     (Eor  subexprs)      = any recurse subexprs
+        recurse     (Exor subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 1
+        recurse     (Eiff subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 0
+        recurse sym@(Esym _)             = sym `elem` trueSymbols
+        recurse      Etrue               = True
+        recurse      Efalse              = False
+
+-----
+
+
 -- RANDOM EXAMPLES
 --   entail (A v B v C ^ D) (A ^ B ^ C => (E => (D => (Z => E))))
 
