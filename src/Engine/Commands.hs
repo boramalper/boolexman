@@ -38,19 +38,7 @@ subexpressions e@(Esym _) = SET e []
 subexpressions Etrue  = SET Etrue []
 subexpressions Efalse = SET Efalse []
 
-{- Returns the list of in the given expression, as a list of expressions which
-are guaranted to be of form (Esym String).
--}
-symbols :: Expr -> [Expr]
-symbols (Enot se) = symbols se
-symbols (Eimp cond cons) = nub $ symbols cond ++ symbols cons
-symbols (Eite cond cons alt) = nub $ symbols cond ++ symbols cons ++ symbols alt
-symbols (Eand ses) = nub $ concatMap symbols ses
-symbols (Eor ses)  = nub $ concatMap symbols ses
-symbols (Exor ses) = nub $ concatMap symbols ses
-symbols (Eiff ses) = nub $ concatMap symbols ses
-symbols s@(Esym _) = [s]
-symbols _  = []  -- Etrue, Efalse
+symbols = symbols'
 
 {- toCNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
 first element is (another list of tuples whose first element is the
@@ -77,7 +65,8 @@ toCNF expr =
         [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (eDNF, pDNF), (dNT2, pNT2), (dOAN, pOAN)]
 
 prop_toCNF :: Expr -> Bool
-prop_toCNF = isCNF . snd . last . toCNF
+prop_toCNF expr = let result = snd $ last $ toCNF expr
+                  in  isCNF result && equivalent expr result
 
 {- toDNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
 first element is (another list of tuples whose first element is the
@@ -104,7 +93,8 @@ toDNF expr =
         [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (eDNF, pDNF), (dNOT, pNOT), (dAOR, pAOR)]
 
 prop_toDNF :: Expr -> Bool
-prop_toDNF = isDNF . snd . last . toDNF
+prop_toDNF expr = let result = snd $ last $ toDNF expr
+                  in  isDNF result && equivalent expr result
 
 {- eval, given a list of true symbols, false symbols, and an expression, returns
 a tuple where the first element of the tuple is a another tuple of list of
@@ -133,41 +123,19 @@ eval trueSymbols falseSymbols expr =
                    , postFalseElimination  = evalDNF trueSymbols falseSymbols sop
                    }
 
--- TODO: FOUND A BUG: (R <=> Q <=> True <=> True)
+{-
+TODO BUG
+
+*Engine.Commands> quickCheck prop_eval
+*** Failed! Falsifiable (after 9 tests):
+((P + True + T + False) <=> !Q <=> (True ^ S ^ Q ^ False) <=> (False <=> False <=> R <=> False))
+-}
 prop_eval :: Expr -> Bool
 prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toExpr (evalS ts fs expr)) $ evaluations expr
     where
         toExpr :: Bool -> Expr
         toExpr True  = Etrue
         toExpr False = Efalse
-
-----
-
--- strict eval!
--- intended for testing `eval`, `toDNF`, and `toCNF` commands
-evalS :: [Expr] -> [Expr] -> Expr -> Bool
-evalS trueSymbols falseSymbols expr
-    |    all (\e -> isSymbol e && e `notElem` [Etrue, Efalse]) trueSymbols
-      && all (\e -> isSymbol e && e `notElem` [Etrue, Efalse]) falseSymbols
-      && all (\s -> (s `elem` trueSymbols) /= (s `elem` falseSymbols)) (symbols expr)
-      =
-        recurse expr
-    | otherwise = error "evalS failed!"
-    where
-        recurse :: Expr -> Bool
-        recurse     (Enot subexpr)       = not $ recurse subexpr
-        recurse     (Eimp cond cons)     = not (recurse cond) || recurse cons
-        recurse     (Eite cond cons alt) = (recurse cond && recurse cons) || (not (recurse cond) && recurse alt)
-        recurse     (Eand subexprs)      = all recurse subexprs
-        recurse     (Eor  subexprs)      = any recurse subexprs
-        recurse     (Exor subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 1
-        recurse     (Eiff subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 0
-        recurse sym@(Esym _)             = sym `elem` trueSymbols
-        recurse      Etrue               = True
-        recurse      Efalse              = False
-
------
-
 
 -- RANDOM EXAMPLES
 --   entail (A v B v C ^ D) (A ^ B ^ C => (E => (D => (Z => E))))
@@ -314,10 +282,3 @@ prop_resolve expr = satisfiable (resolve expr) == any (\(ts, fs) -> postFalseEli
 
         elemN :: Eq a => [a] -> [a] -> Bool
         elemN needles haystack = any (`elem` haystack) needles
-
--- | for a given expression, returns a list of all possible true/false symbols
-evaluations :: Expr -> [([Expr], [Expr])]
-evaluations expr = let syms = symbols expr
-                   in  concatMap (\n -> let trueSymbols = combinations syms n
-                                  in  map (\ts -> (ts, syms \\ ts)) trueSymbols
-                           ) [0..length syms]

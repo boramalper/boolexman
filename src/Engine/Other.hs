@@ -24,7 +24,60 @@ import qualified Safe as Safe
 
 import DataTypes
 import Parser
-import Utils (findOne)
+import Utils (findOne, combinations)
+
+-- strict eval!
+-- intended for testing `eval`, `toDNF`, and `toCNF` commands
+evalS :: [Expr] -> [Expr] -> Expr -> Bool
+evalS trueSymbols falseSymbols expr
+    |    all (\e -> isSymbol e && e `notElem` [Etrue, Efalse]) trueSymbols
+      && all (\e -> isSymbol e && e `notElem` [Etrue, Efalse]) falseSymbols
+      && all (\s -> (s `elem` trueSymbols) /= (s `elem` falseSymbols)) (symbols' expr)
+      =
+        recurse expr
+    | otherwise = error "evalS failed!"
+    where
+        recurse :: Expr -> Bool
+        recurse     (Enot subexpr)       = not $ recurse subexpr
+        recurse     (Eimp cond cons)     = not (recurse cond) || recurse cons
+        recurse     (Eite cond cons alt) = (recurse cond && recurse cons) || (not (recurse cond) && recurse alt)
+        recurse     (Eand subexprs)      = all recurse subexprs
+        recurse     (Eor  subexprs)      = any recurse subexprs
+        recurse     (Exor subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 1
+        recurse     (Eiff subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 0
+        recurse sym@(Esym _)             = sym `elem` trueSymbols
+        recurse      Etrue               = True
+        recurse      Efalse              = False
+
+-- | for a given expression, returns a list of all possible true/false symbols
+evaluations :: Expr -> [([Expr], [Expr])]
+evaluations expr = let syms = symbols' expr
+                   in  concatMap (\n -> let trueSymbols = combinations syms n
+                                        in  map (\ts -> (ts, syms \\ ts)) trueSymbols
+                           ) [0..length syms]
+
+equivalent :: Expr -> Expr -> Bool
+equivalent p q = let syms = nub $ symbols' p ++ symbols' q
+                 in  all (\(ts, fs) -> evalS ts fs p == evalS ts fs q) $ evaluationsL syms
+    where
+        evaluationsL :: [Expr] -> [([Expr], [Expr])]
+        evaluationsL syms = concatMap (\n -> let trueSymbols = combinations syms n
+                                             in  map (\ts -> (ts, syms \\ ts)) trueSymbols
+                                ) [0..length syms]
+
+{- Returns the list of in the given expression, as a list of expressions which
+are guaranted to be of form (Esym String).
+-}
+symbols' :: Expr -> [Expr]
+symbols' (Enot se) = symbols' se
+symbols' (Eimp cond cons) = nub $ symbols' cond ++ symbols' cons
+symbols' (Eite cond cons alt) = nub $ symbols' cond ++ symbols' cons ++ symbols' alt
+symbols' (Eand ses) = nub $ concatMap symbols' ses
+symbols' (Eor ses)  = nub $ concatMap symbols' ses
+symbols' (Exor ses) = nub $ concatMap symbols' ses
+symbols' (Eiff ses) = nub $ concatMap symbols' ses
+symbols' s@(Esym _) = [s]
+symbols' _  = []  -- Etrue, Efalse
 
 isDNF :: Expr -> Bool
 isDNF (Eand xs) = all (\x -> isSymbol x || isNegSymbol x) xs
@@ -154,13 +207,11 @@ eliminationsFalse falseSymbols (mt:minterms) =
         Just aFalseSymbol -> (aFalseSymbol, mt) : eliminationsFalse falseSymbols minterms
         Nothing           -> eliminationsFalse falseSymbols minterms
 
-{- negateIn negates all expressions in the first list that also occurs
-in the second (list).
+{- negateIn negates all expressions in the first list that occurs in the second (list).
 -}
 negateIn :: [Expr] -> [Expr] -> [Expr]
-negateIn (x:xs) neg =
-    if x `elem` neg then
-        Enot x : negateIn xs neg
-    else
-        x : negateIn xs neg
-negateIn [] _ = []
+negateIn [] _  = []
+negateIn xs [] = xs
+negateIn (x:xs) neg = if   x `elem` neg
+                      then Enot x : negateIn xs (delete x neg)
+                      else      x : negateIn xs neg

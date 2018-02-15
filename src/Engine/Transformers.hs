@@ -16,13 +16,28 @@ THIS SOFTWARE.
 module Engine.Transformers where
 
 import Data.List (nub)
+import Test.QuickCheck
 
 import DataTypes
-import Engine.Other (negateIn)
+import Engine.Other (negateIn, evalS, evaluations)
 import Utils (combine, combinations)
+
+prop_transformerMaybe :: (Expr -> Maybe Expr) -> Expr -> Bool
+prop_transformerMaybe func expr = case func expr of
+    Just expr' -> all (\(ts, fs) -> evalS ts fs expr == evalS ts fs expr') $ evaluations expr
+    Nothing    -> True
+
+prop_transformerAll :: (Expr -> Expr) -> Expr -> Bool
+prop_transformerAll func expr = undefined
+
+prop_tranformations :: (Expr -> [(Expr, Expr)]) -> Expr -> Bool
+prop_tranformations func expr = undefined
 
 normalise :: Expr -> Expr
 normalise = removeTriviality . removeRedundancy . flatten
+
+prop_normalise :: Expr -> Bool
+prop_normalise = prop_transformerAll normalise
 
 {-| Removes *syntactically* redundant (i.e. repeating) subexpressions in AND, OR,
 XOR, IFF expressions, such as:
@@ -59,6 +74,9 @@ removeRedundancy (Eor subexprs) = case nub $ map removeRedundancy subexprs of
     subexprs' -> eOR subexprs'
 removeRedundancy expr = expr
 
+prop_removeRedundancy :: Expr -> Bool
+prop_removeRedundancy = prop_transformerAll removeRedundancy
+
 {- Removes trivial.
 -}
 removeTriviality :: Expr -> Expr
@@ -77,6 +95,9 @@ removeTriviality (Eor subexprs) =
           [x] -> x
           _   -> eOR subexprs'
 removeTriviality expr = expr
+
+prop_removeTriviality :: Expr -> Bool
+prop_removeTriviality = prop_transformerAll removeTriviality
 
 -- flatten nested expressions
 -- TODO: can we reduce the redundancy here?
@@ -107,6 +128,9 @@ flatten (Enot subexpr)  = Enot $ flatten subexpr
 flatten expr | isSymbol expr = expr
              | otherwise     = error "programmer error! update flatten for new non-symbols!"
 
+prop_flatten :: Expr -> Bool
+prop_flatten = prop_transformerAll flatten
+
 distributeAND :: Expr -> Maybe Expr
 distributeAND (Eand subexprs) =
     let orSubexprs    = filter (\se -> case se of Eor _ -> True; _ -> False) subexprs
@@ -115,6 +139,9 @@ distributeAND (Eand subexprs) =
         then Nothing
         else Just $ Eor $ map (\x -> eAND $ nonOrSubexprs ++ x) (combine $ map (\(Eor x) -> x) orSubexprs)
 distributeAND _ = Nothing
+
+prop_distributeAND :: Expr -> Bool
+prop_distributeAND = prop_transformerMaybe distributeAND
 
 distributeNOT :: Expr -> Maybe Expr
 distributeNOT expr = case expr of
@@ -125,6 +152,9 @@ distributeNOT expr = case expr of
     Enot Efalse     -> Just Etrue
     _ -> Nothing
 
+prop_distributeNOT :: Expr -> Bool
+prop_distributeNOT = prop_transformerMaybe distributeNOT
+
 distributeOR :: Expr -> Maybe Expr
 distributeOR (Eor subexprs) =
     let andSubexprs    = filter (\se -> case se of Eand _ -> True; _ -> False) subexprs
@@ -134,6 +164,9 @@ distributeOR (Eor subexprs) =
         else Just $ eAND $ map (\x -> eOR $ nonAndSubexprs ++ x) (combine $ map (\(Eand x) -> x) andSubexprs)
 distributeOR _ = Nothing
 
+prop_distributeOR :: Expr -> Bool
+prop_distributeOR = prop_transformerMaybe distributeOR
+
 {-| eliminateITE eliminates the given if-then-else expression of form (Γ ? Δ : Ω)
 by replacing it with ((Γ ^ Δ) v (!Γ ^ Ω)); if the given expression is of another
 form, then Nothing.
@@ -142,13 +175,19 @@ eliminateITE :: Expr -> Maybe Expr
 eliminateITE (Eite cond cons alt) = Just $ Eor [Eand [cond, cons], Eand [Enot cond, alt]]
 eliminateITE _ = Nothing
 
+prop_eliminateITE :: Expr -> Bool
+prop_eliminateITE = prop_transformerMaybe eliminateITE
+
 {-| eliminateIFF eliminates the given if-and-only-if expression of form
 (Γ1 <=> Γ2 <=> ... <=> Γn) by replacing it with (!(Γ1 + Γ2 + ... + Γn)); if the
 given expression is of another form, then Nothing.
 -}
 eliminateIFF :: Expr -> Maybe Expr
-eliminateIFF (Eiff ses) = Just $ Enot $ Exor ses
+eliminateIFF (Eiff ses) = Just $ Enot $ eXOR ses
 eliminateIFF _ = Nothing
+
+prop_eliminateIFF :: Expr -> Bool
+prop_eliminateIFF = prop_transformerMaybe eliminateIFF
 
 {-| eliminateIMP eliminates the given implies expressions of form (Γ1 => Γ2) by
 replacing it with (!Γ1 v Γ2); if the given expression is of another form, then
@@ -158,53 +197,20 @@ eliminateIMP :: Expr -> Maybe Expr
 eliminateIMP (Eimp cond cons) = Just $ Eor [Enot cond, cons]
 eliminateIMP _ = Nothing
 
+prop_eliminateIMP :: Expr -> Bool
+prop_eliminateIMP = prop_transformerMaybe eliminateIMP
+
 eliminateXORcnf :: Expr -> Maybe Expr
 eliminateXORcnf (Exor subexprs) =
-    let lsubexprs = length subexprs
-        negationCounts = if lsubexprs `mod` 2 == 0 then [0,2..lsubexprs] else [1,3..lsubexprs]
+    let negationCounts = [length subexprs - p | p <- [0,2..length subexprs]]
         negationCombinations = concatMap (combinations subexprs) negationCounts :: [[Expr]]
         negatedSubexprs = map (negateIn subexprs) negationCombinations :: [[Expr]]
     -- reverse makes the output easier to understand (try it!)
-    in  Just $ eAND $ reverse $ map Eor negatedSubexprs
+    in  Just $ eAND $ reverse $ map eOR negatedSubexprs
 eliminateXORcnf _ = Nothing
 
-{-|
-TODO: verify the comment
-
- eliminateXORdnf eliminates the given XOR expression of form
-Γ1 + Γ2 + ... + Γn by replacing it with OR-of all AND'd n combinations of
-Γ1, Γ2, ..., Γn where in each combination odd number of Γs are non-negated
-(i.e. 1, 3, 5, ..., n).
-
-For instance, for (Γ1 + Γ2 + Γ3 + Γ4 + Γ5):
-  ( Γ1 +  Γ2 +  Γ3 +  Γ4 +  Γ5)
-≡
-  ( Γ1 ^  Γ2 ^  Γ3 ^  Γ4 ^  Γ5)
-                              number of non-negated Γs in each AND expression: 5
-
-v (!Γ1 ^ !Γ2 ^  Γ3 ^  Γ4 ^  Γ5) v (!Γ1 ^  Γ2 ^ !Γ3 ^  Γ4 ^  Γ5)
-v (!Γ1 ^  Γ2 ^  Γ3 ^ !Γ4 ^  Γ5) v (!Γ1 ^  Γ2 ^  Γ3 ^  Γ4 ^ !Γ5)
-v ( Γ1 ^ !Γ2 ^ !Γ3 ^  Γ4 ^  Γ5) v ( Γ1 ^ !Γ2 ^  Γ3 ^ !Γ4 ^  Γ5)
-v ( Γ1 ^ !Γ2 ^  Γ3 ^  Γ4 ^ !Γ5) v ( Γ1 ^  Γ2 ^ !Γ3 ^ !Γ4 ^  Γ5)
-v ( Γ1 ^  Γ2 ^ !Γ3 ^  Γ4 ^ !Γ5) v ( Γ1 ^  Γ2 ^  Γ3 ^ !Γ4 ^ !Γ5)
-                              number of non-negated Γs in each AND expression: 3
-
-v (!Γ1 ^ !Γ2 ^ !Γ3 ^ !Γ4 ^  Γ5) v (!Γ1 ^ !Γ2 ^ !Γ3 ^  Γ4 ^ !Γ5)
-v (!Γ1 ^ !Γ2 ^  Γ3 ^ !Γ4 ^ !Γ5) v (!Γ1 ^  Γ2 ^ !Γ3 ^ !Γ4 ^ !Γ5)
-v ( Γ1 ^ !Γ2 ^ !Γ3 ^ !Γ4 ^ !Γ5)
-                              number of non-negated Γs in each AND expression: 1
-
-Total number of AND expressions: C(5, 5) + C(5, 3) + C(5, 1) = 1 + 10 + 5 = 16
--}
-eliminateXORdnf :: Expr -> Maybe Expr
-eliminateXORdnf (Exor subexprs) =
-    let lsubexprs = length subexprs
-        negationCounts = if lsubexprs `mod` 2 == 0 then [1,3..lsubexprs] else [0,2..lsubexprs]
-        negationCombinations = concatMap (combinations subexprs) negationCounts :: [[Expr]]
-        negatedSubexprs = map (negateIn subexprs) negationCombinations :: [[Expr]]
-    -- reverse makes the output easier to understand (try it!)
-    in  Just $ Eor $ reverse $ map Eand negatedSubexprs
-eliminateXORdnf _ = Nothing
+prop_eliminateXORcnf :: Expr -> Bool
+prop_eliminateXORcnf = prop_transformerMaybe eliminateXORcnf
 
 -- replace, deep first!
 replace :: (Expr -> Maybe Expr) -> Expr -> Expr
@@ -227,26 +233,44 @@ replace func expr =
 distributeAllAND :: Expr -> Expr
 distributeAllAND = replace distributeAND
 
+prop_distributeAllAND :: Expr -> Bool
+prop_distributeAllAND = prop_transformerAll distributeAllAND
+
 distributeAllNOT :: Expr -> Expr
 distributeAllNOT = replace distributeNOT
+
+prop_distributeAllNOT :: Expr -> Bool
+prop_distributeAllNOT = prop_transformerAll distributeAllNOT
 
 distributeAllOR :: Expr -> Expr
 distributeAllOR = replace distributeOR
 
+prop_distributeAllOR :: Expr -> Bool
+prop_distributeAllOR = prop_transformerAll distributeAllOR
+
 eliminateAllITE :: Expr -> Expr
 eliminateAllITE = replace eliminateITE
+
+prop_eliminateAllITE :: Expr -> Bool
+prop_eliminateAllITE = prop_transformerAll eliminateAllITE
 
 eliminateAllIFF :: Expr -> Expr
 eliminateAllIFF = replace eliminateIFF
 
+prop_eliminateAllIFF :: Expr -> Bool
+prop_eliminateAllIFF = prop_transformerAll eliminateAllIFF
+
 eliminateAllIMP :: Expr -> Expr
 eliminateAllIMP = replace eliminateIMP
+
+prop_eliminateAllIMP :: Expr -> Bool
+prop_eliminateAllIMP = prop_transformerAll eliminateAllIMP
 
 eliminateAllXORcnf :: Expr -> Expr
 eliminateAllXORcnf = replace eliminateXORcnf
 
-eliminateAllXORdnf :: Expr -> Expr
-eliminateAllXORdnf = replace eliminateXORdnf
+prop_eliminateAllXORcnf :: Expr -> Bool
+prop_eliminateAllXORcnf = prop_transformerAll eliminateAllXORcnf
 
 -- Depth First Yield
 yield :: (Expr -> Maybe Expr) -> Expr -> [(Expr, Expr)]
@@ -297,6 +321,3 @@ eliminationsIMP = yield eliminateIMP
 
 eliminationsXORcnf :: Expr -> [(Expr, Expr)]
 eliminationsXORcnf = yield eliminateXORcnf
-
-eliminationsXORdnf :: Expr -> [(Expr, Expr)]
-eliminationsXORdnf = yield eliminateXORdnf
