@@ -43,8 +43,16 @@ evalS trueSymbols falseSymbols expr
         recurse     (Eite cond cons alt) = (recurse cond && recurse cons) || (not (recurse cond) && recurse alt)
         recurse     (Eand subexprs)      = all recurse subexprs
         recurse     (Eor  subexprs)      = any recurse subexprs
-        recurse     (Exor subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 1
-        recurse     (Eiff subexprs)      = length [s | s <- subexprs, recurse s] `mod` 2 == 0
+        recurse     (Exor subexprs)      = foldr1 xor $ map recurse subexprs --length [s | s <- subexprs, recurse s] `mod` 2 == 1
+            where
+                xor True  False = True
+                xor False True  = True
+                xor _     _     = False
+        recurse     (Eiff subexprs)      = foldr1 iff $ map recurse subexprs -- length [s | s <- subexprs, not $ recurse s] `mod` 2 == 0
+            where
+                iff True  True  = True
+                iff False False = True
+                iff _     _     = False
         recurse sym@(Esym _)             = sym `elem` trueSymbols
         recurse      Etrue               = True
         recurse      Efalse              = False
@@ -57,8 +65,10 @@ evaluations expr = let syms = symbols' expr
                            ) [0..length syms]
 
 equivalent :: Expr -> Expr -> Bool
-equivalent p q = let syms = nub $ symbols' p ++ symbols' q
-                 in  all (\(ts, fs) -> evalS ts fs p == evalS ts fs q) $ evaluationsL syms
+equivalent p q
+    | p /= q = let syms = nub $ symbols' p ++ symbols' q
+               in  all (\(ts, fs) -> evalS ts fs p == evalS ts fs q) $ evaluationsL syms
+    | otherwise = error "p is equal to q and that's *probably* not what you wanted!"
     where
         evaluationsL :: [Expr] -> [([Expr], [Expr])]
         evaluationsL syms = concatMap (\n -> let trueSymbols = combinations syms n

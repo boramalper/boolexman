@@ -19,19 +19,20 @@ import Data.List (nub)
 import Test.QuickCheck
 
 import DataTypes
-import Engine.Other (negateIn, evalS, evaluations)
+import Engine.Other (negateIn, evalS, evaluations, equivalent)
 import Utils (combine, combinations)
 
 prop_transformerMaybe :: (Expr -> Maybe Expr) -> Expr -> Bool
 prop_transformerMaybe func expr = case func expr of
-    Just expr' -> all (\(ts, fs) -> evalS ts fs expr == evalS ts fs expr') $ evaluations expr
+    Just expr' -> expr == expr' || equivalent expr expr'
     Nothing    -> True
 
 prop_transformerAll :: (Expr -> Expr) -> Expr -> Bool
-prop_transformerAll func expr = undefined
+prop_transformerAll func expr = let expr' = func expr
+                                in  expr == expr' || equivalent expr expr'
 
-prop_tranformations :: (Expr -> [(Expr, Expr)]) -> Expr -> Bool
-prop_tranformations func expr = undefined
+prop_transformations :: (Expr -> [(Expr, Expr)]) -> Expr -> Bool
+prop_transformations func expr = all (\(e, e') -> e == e' || equivalent e e' ) $ func expr
 
 normalise :: Expr -> Expr
 normalise = removeTriviality . removeRedundancy . flatten
@@ -66,13 +67,18 @@ ALSO:
 TODO: identify all cases of semantic redundancy!
 -}
 removeRedundancy :: Expr -> Expr
-removeRedundancy (Eand subexprs) = case nub $ map removeRedundancy subexprs of
-    [x] -> x
-    subexprs' -> eAND subexprs'
-removeRedundancy (Eor subexprs) = case nub $ map removeRedundancy subexprs of
-    [x] -> x
-    subexprs' -> eOR subexprs'
-removeRedundancy expr = expr
+removeRedundancy = replace removeRedundancyMaybe
+    where
+        removeRedundancyMaybe :: Expr -> Maybe Expr
+        removeRedundancyMaybe (Eand subexprs) = let subexprs' = nub subexprs
+                                                in  if   subexprs /= subexprs'
+                                                    then Just $ eAND subexprs'
+                                                    else Nothing
+        removeRedundancyMaybe (Eor  subexprs) = let subexprs' = nub subexprs
+                                                in  if   subexprs /= subexprs'
+                                                    then Just $ eOR subexprs'
+                                                    else Nothing
+        removeRedundancyMaybe _               = Nothing
 
 prop_removeRedundancy :: Expr -> Bool
 prop_removeRedundancy = prop_transformerAll removeRedundancy
@@ -80,21 +86,24 @@ prop_removeRedundancy = prop_transformerAll removeRedundancy
 {- Removes trivial.
 -}
 removeTriviality :: Expr -> Expr
-removeTriviality (Eand subexprs) =
-    let subexprs' = filter (/= Etrue) $ map removeTriviality subexprs
-    in  if   Efalse `elem` subexprs' || any (\se -> Enot se `elem` subexprs') subexprs'
-       then Efalse
-       else case subexprs' of
-           [x] -> x
-           _   -> eAND subexprs'
-removeTriviality (Eor subexprs) =
-    let subexprs' = filter (/= Efalse) $ map removeTriviality subexprs
-    in  if   Etrue `elem` subexprs' || any (\se -> Enot se `elem` subexprs') subexprs'
-      then Etrue
-      else case subexprs' of
-          [x] -> x
-          _   -> eOR subexprs'
-removeTriviality expr = expr
+removeTriviality = replace removeTrivialityMaybe
+    where
+        removeTrivialityMaybe :: Expr -> Maybe Expr
+        removeTrivialityMaybe (Eand subexprs) =
+            let subexprs' = filter (/= Etrue) subexprs
+            in  if   Efalse `elem` subexprs' || any (\se -> Enot se `elem` subexprs') subexprs'
+                then Just Efalse
+                else if   subexprs /= subexprs'
+                     then Just $ eAND subexprs'
+                     else Nothing
+        removeTrivialityMaybe (Eor subexprs) =
+            let subexprs' = filter (/= Efalse) subexprs
+            in  if   Etrue `elem` subexprs' || any (\se -> Enot se `elem` subexprs') subexprs'
+                then Just Etrue
+                else if   subexprs /= subexprs'
+                     then Just $ eOR subexprs'
+                     else Nothing
+        removeTrivialityMaybe _ = Nothing
 
 prop_removeTriviality :: Expr -> Bool
 prop_removeTriviality = prop_transformerAll removeTriviality
@@ -183,7 +192,9 @@ prop_eliminateITE = prop_transformerMaybe eliminateITE
 given expression is of another form, then Nothing.
 -}
 eliminateIFF :: Expr -> Maybe Expr
-eliminateIFF (Eiff ses) = Just $ Enot $ eXOR ses
+eliminateIFF (Eiff ses) = if   length ses `mod` 2 == 0
+                          then Just $ Enot $ eXOR ses
+                          else Just $ eXOR ses
 eliminateIFF _ = Nothing
 
 prop_eliminateIFF :: Expr -> Bool
@@ -202,7 +213,7 @@ prop_eliminateIMP = prop_transformerMaybe eliminateIMP
 
 eliminateXORcnf :: Expr -> Maybe Expr
 eliminateXORcnf (Exor subexprs) =
-    let negationCounts = [length subexprs - p | p <- [0,2..length subexprs]]
+    let negationCounts = [0,2..length subexprs]
         negationCombinations = concatMap (combinations subexprs) negationCounts :: [[Expr]]
         negatedSubexprs = map (negateIn subexprs) negationCombinations :: [[Expr]]
     -- reverse makes the output easier to understand (try it!)

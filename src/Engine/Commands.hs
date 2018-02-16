@@ -66,7 +66,7 @@ toCNF expr =
 
 prop_toCNF :: Expr -> Bool
 prop_toCNF expr = let result = snd $ last $ toCNF expr
-                  in  isCNF result && equivalent expr result
+                  in  isCNF result && (expr == result || equivalent expr result)
 
 {- toDNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
 first element is (another list of tuples whose first element is the
@@ -94,7 +94,7 @@ toDNF expr =
 
 prop_toDNF :: Expr -> Bool
 prop_toDNF expr = let result = snd $ last $ toDNF expr
-                  in  isDNF result && equivalent expr result
+                  in  isDNF result && (expr == result || equivalent expr result)
 
 {- eval, given a list of true symbols, false symbols, and an expression, returns
 a tuple where the first element of the tuple is a another tuple of list of
@@ -123,13 +123,6 @@ eval trueSymbols falseSymbols expr =
                    , postFalseElimination  = evalDNF trueSymbols falseSymbols sop
                    }
 
-{-
-TODO BUG
-
-*Engine.Commands> quickCheck prop_eval
-*** Failed! Falsifiable (after 9 tests):
-((P + True + T + False) <=> !Q <=> (True ^ S ^ Q ^ False) <=> (False <=> False <=> R <=> False))
--}
 prop_eval :: Expr -> Bool
 prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toExpr (evalS ts fs expr)) $ evaluations expr
     where
