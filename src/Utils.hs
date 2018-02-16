@@ -15,6 +15,8 @@ THIS SOFTWARE.
 -}
 module Utils where
 
+import Test.QuickCheck
+
 findOne :: Eq a => [a] -> [a] -> Maybe a
 findOne [] _ = Nothing
 findOne (n:needles) haystack = if n `elem` haystack then Just n else findOne needles haystack
@@ -44,10 +46,10 @@ combinations s k
         map' f [_] = []
         map' f (x:xs) = f x xs : map' f xs
 
-prop_combinations :: [a] -> Int -> Bool
-prop_combinations s k
+prop_combinations :: [a] -> NonNegative Int -> Bool
+prop_combinations s (NonNegative k)
     | length s < 20 && k < length s && k >= 0 = length (combinations s k) == c (length s) k
-    | otherwise = True
+    | otherwise = discard
     where
         c :: Int -> Int -> Int
         c s k =

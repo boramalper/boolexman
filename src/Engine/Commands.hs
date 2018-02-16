@@ -66,7 +66,9 @@ toCNF expr =
 
 prop_toCNF :: Expr -> Bool
 prop_toCNF expr = let result = snd $ last $ toCNF expr
-                  in  isCNF result && (expr == result || equivalent expr result)
+                  in  if   expr == result
+                      then discard
+                      else isCNF result && (expr == result || equivalent expr result)
 
 {- toDNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
 first element is (another list of tuples whose first element is the
@@ -94,7 +96,9 @@ toDNF expr =
 
 prop_toDNF :: Expr -> Bool
 prop_toDNF expr = let result = snd $ last $ toDNF expr
-                  in  isDNF result && (expr == result || equivalent expr result)
+                  in  if   expr == result
+                      then discard
+                      else isDNF result && (expr == result || equivalent expr result)
 
 {- eval, given a list of true symbols, false symbols, and an expression, returns
 a tuple where the first element of the tuple is a another tuple of list of
@@ -194,7 +198,7 @@ prop_entail :: Expr -> Expr -> Bool
 -- for all evaluations that make cond true, expr must be true as well
 prop_entail cond expr = if   doesEntail $ entailment $ entail cond expr
                         then all (\(ts, fs) -> if postFalseElimination (eval ts fs cond) == Etrue then postFalseElimination (eval ts fs expr) == Etrue else True) $ evaluations cond
-                        else True
+                        else discard
     where
       doesEntail :: Entailment -> Bool
       doesEntail (I _) = True
