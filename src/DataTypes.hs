@@ -53,7 +53,7 @@ isIMP _ = False
 
 --                  TURNSTILE
 --                     HERE
-data Line = Line [Expr]       [Expr]
+data Line = Line [Expr]       [Expr] deriving (Eq)
 
 instance Show Line where
     show (Line conds exprs) = slist conds ++ " |- " ++ slist exprs
@@ -76,6 +76,7 @@ data Entailment = I Line
                 | Riff Line Entailment Entailment
                 | Lor  Line [Entailment]
                 | Rand Line [Entailment]
+                deriving (Eq)
 
 -- mp4man style, bottom up.
 instance Show Entailment where

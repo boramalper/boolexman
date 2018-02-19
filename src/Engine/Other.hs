@@ -35,7 +35,7 @@ evalS trueSymbols falseSymbols expr
       && all (\s -> (s `elem` trueSymbols) /= (s `elem` falseSymbols)) (symbols' expr)
       =
         recurse expr
-    | otherwise = error "evalS failed!"
+    | otherwise = error $ "evalS failed!  (ts: " ++ show trueSymbols ++ ", fs: " ++ show falseSymbols ++ ", expr: " ++ show expr ++" )"
     where
         recurse :: Expr -> Bool
         recurse     (Enot subexpr)       = not $ recurse subexpr
@@ -63,6 +63,9 @@ evaluations expr = let syms = symbols' expr
                    in  concatMap (\n -> let trueSymbols = combinations syms n
                                         in  map (\ts -> (ts, syms \\ ts)) trueSymbols
                            ) [0..length syms]
+
+tautology :: Expr -> Bool
+tautology expr = expr == Etrue || equivalent Etrue expr
 
 equivalent :: Expr -> Expr -> Bool
 equivalent p q

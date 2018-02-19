@@ -97,8 +97,8 @@ toDNF expr =
 prop_toDNF :: Expr -> Bool
 prop_toDNF expr = let result = snd $ last $ toDNF expr
                   in  if   expr == result
-                      then discard
-                      else isDNF result && (expr == result || equivalent expr result)
+                      then if isDNF result then discard else False
+                      else isDNF result && equivalent expr result
 
 {- eval, given a list of true symbols, false symbols, and an expression, returns
 a tuple where the first element of the tuple is a another tuple of list of
@@ -173,31 +173,31 @@ TODO: I feel there might be an optimised way for these...
         recurse conds exprs
             | any (`elem` conds) exprs = I $ Line conds exprs
             | any isAND conds = let s@(Eand andSubexprs) = takeOne isAND conds
-                                in  Land (Line conds exprs) $ recurse (delete s conds ++ andSubexprs) exprs
+                                in  Land (Line conds exprs) $ recurse (nub $ delete s conds ++ andSubexprs) exprs
             | any isOR  exprs = let s@(Eor orSubexprs) = takeOne isOR exprs
-                                in  Ror (Line conds exprs) $ recurse conds (delete s exprs ++ orSubexprs)
+                                in  Ror (Line conds exprs) $ recurse conds (nub $ delete s exprs ++ orSubexprs)
             | any isOR  conds = let s@(Eor orSubexprs) = takeOne isOR conds
                                     conds' = delete s conds
-                                in  Lor (Line conds exprs) $ map (\ose -> recurse (ose:conds') exprs) orSubexprs
+                                in  Lor (Line conds exprs) $ nub $ map (\ose -> recurse (ose:conds') exprs) orSubexprs
             | any isAND exprs = let s@(Eand andSubexprs) = takeOne isAND exprs
                                     exprs' = delete s exprs
-                                in  Rand (Line conds exprs) $ map (\ase -> recurse conds (ase:exprs')) andSubexprs
+                                in  Rand (Line conds exprs) $ nub $ map (\ase -> recurse conds (ase:exprs')) andSubexprs
             | any isIMP conds = let s@(Eimp cond cons) = takeOne isIMP conds
                                     conds' = delete s conds
                                 in  Limp (Line conds exprs) (recurse conds' (cond:exprs)) (recurse (cons:conds') exprs)
             | any isIMP exprs = let s@(Eimp cond cons) = takeOne isIMP exprs
                                     exprs' = delete s exprs
-                                in  Rimp (Line conds exprs) $ recurse (cond:conds) (cons:exprs')
+                                in  Rimp (Line conds exprs) $ recurse (nub $ cond:conds) (nub $ cons:exprs')
             | any isNOT conds = let s@(Enot subexpr) = takeOne isNOT conds
-                                in  Lnot (Line conds exprs) $ recurse (delete s conds) (subexpr:exprs)
+                                in  Lnot (Line conds exprs) $ recurse (delete s conds) (nub $ subexpr:exprs)
             | any isNOT exprs = let s@(Enot subexpr) = takeOne isNOT exprs
-                                in  Rnot (Line conds exprs) $ recurse (subexpr:conds) (delete s exprs)
+                                in  Rnot (Line conds exprs) $ recurse (nub $ subexpr:conds) (delete s exprs)
             | otherwise       = F (Line conds exprs)
 
 prop_entail :: Expr -> Expr -> Bool
 -- for all evaluations that make cond true, expr must be true as well
 prop_entail cond expr = if   doesEntail $ entailment $ entail cond expr
-                        then all (\(ts, fs) -> if postFalseElimination (eval ts fs cond) == Etrue then postFalseElimination (eval ts fs expr) == Etrue else True) $ evaluations cond
+                        then all (\(ts, fs) -> evalS ts fs $ Eimp cond expr) $ evaluations $ Eimp cond expr
                         else discard
     where
       doesEntail :: Entailment -> Bool
