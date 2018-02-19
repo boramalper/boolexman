@@ -46,10 +46,9 @@ combinations s k
         map' f [_] = []
         map' f (x:xs) = f x xs : map' f xs
 
-prop_combinations :: [a] -> NonNegative Int -> Bool
-prop_combinations s (NonNegative k)
-    | length s < 20 && k < length s && k >= 0 = length (combinations s k) == c (length s) k
-    | otherwise = discard
+prop_combinations :: [a] -> NonNegative Int -> Property
+prop_combinations s (NonNegative k) =
+    (length s < 20 && k < length s && k >= 0) ==> length (combinations s k) == c (length s) k
     where
         c :: Int -> Int -> Int
         c s k =

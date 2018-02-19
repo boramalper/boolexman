@@ -19,8 +19,6 @@ import Data.List (nub, delete, (\\))
 import Debug.Trace
 import Test.QuickCheck
 
-import qualified Safe as Safe
-
 import DataTypes
 import Engine.Transformers
 import Engine.Other
@@ -167,7 +165,7 @@ TODO: I feel there might be an optimised way for these...
         -}
 
         takeOne :: Show a => (a -> Bool) -> [a] -> a
-        takeOne f l = Safe.head "CM 168" $ [x | x <- l, f x]
+        takeOne f l = head [x | x <- l, f x]
 
         recurse :: [Expr] -> [Expr] -> Entailment
         recurse conds exprs
@@ -265,7 +263,7 @@ resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
         findSuitableResolvent clauses = let symbols = nub $ concat clauses
                                             res     = filter (\sym -> any (sym `elem`) clauses && any (Enot sym `elem`) clauses) symbols
                                         in  if   not $ null res
-                                            then Just $ Safe.head "CM 273" res
+                                            then Just $ head res
                                             else Nothing
 
         shouldStrike :: Clause -> Bool

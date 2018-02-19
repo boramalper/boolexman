@@ -20,8 +20,6 @@ import Data.Maybe
 import Debug.Trace
 import Test.QuickCheck
 
-import qualified Safe as Safe
-
 import DataTypes
 import Parser
 import Utils (findOne, combinations)
@@ -190,7 +188,7 @@ eliminateTrue trueSymbols maxterms =
         result             = maxterms \\ eliminatedMaxterms
     in  if   length result > 1
         then eAND $ map eOR result
-        else eOR  $ Safe.head "OT 127" result
+        else eOR  $ head result
 
 eliminationsTrue :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
 eliminationsTrue _ [] = []
@@ -209,7 +207,7 @@ eliminateFalse falseSymbols minterms =
         result             = minterms \\ eliminatedMinterms
     in  if   length result > 1
         then eOR  $ map eAND result
-        else eAND $ Safe.head "OT 146" result
+        else eAND $ head result
 
 eliminationsFalse :: [Expr] -> [[Expr]] -> [(Expr, [Expr])]
 eliminationsFalse _ [] = []
@@ -219,12 +217,3 @@ eliminationsFalse falseSymbols (mt:minterms) =
     else case findOne falseSymbols mt of
         Just aFalseSymbol -> (aFalseSymbol, mt) : eliminationsFalse falseSymbols minterms
         Nothing           -> eliminationsFalse falseSymbols minterms
-
-{- negateIn negates all expressions in the first list that occurs in the second (list).
--}
-negateIn :: [Expr] -> [Expr] -> [Expr]
-negateIn [] _  = []
-negateIn xs [] = xs
-negateIn (x:xs) neg = if   x `elem` neg
-                      then Enot x : negateIn xs (delete x neg)
-                      else      x : negateIn xs neg

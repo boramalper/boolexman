@@ -38,33 +38,182 @@ zero or more space-separated arguments. Every command verb starts with a letter,
 followed by optionally some more alphanumeric characters. Command verbs are
 case-insensitive!
 
-- __quit__
+- __`quit`__
 
   Quits the program. Takes no arguments.
 
-- __subexpressions__
+- __`subexpressions`__ `expression :: Expression`
+
+  Finds all the subexpressions of `expression`, including the `expression`
+  itself.
+
+  __Example:__
+
+  ```
+     1> subexpressions (if A iff B then C implies D xor E else F and G or not D)
+  ```
+
+  ```
+      1 Sub-Expression Tree:
+      2   ((A <=> B) ? (C => (D + E)) : ((F ^ G) v !D))
+      3   ├─ (A <=> B)
+      4   │  ├─ A
+      5   │  ├─ B
+      6   ├─ (C => (D + E))
+      7   │  ├─ C
+      8   │  ├─ (D + E)
+      9   │  │  ├─ D
+     10   │  │  ├─ E
+     11   ├─ ((F ^ G) v !D)
+     12   │  ├─ (F ^ G)
+     13   │  │  ├─ F
+     14   │  │  ├─ G
+     15   │  ├─ !D
+     16   │  │  ├─ D
+     17
+     18
+     19 Sub-Expression List:
+     20   • ((A <=> B) ? (C => (D + E)) : ((F ^ G) v !D))
+     21   • (A <=> B)
+     22   • A
+     23   • B
+     24   • (C => (D + E))
+     25   • C   
+     26   • (D + E)
+     27   • D
+     28   • E
+     29   • ((F ^ G) v !D)
+     30   • (F ^ G)
+     31   • F
+     32   • G
+     33   • !D
+  ```
+
+- __`symbols`__ `expression :: Expression`
+
+  Extracts all the symbols of `expression`.
+
+  __Example:__
+
+  ```
+     1> symbols (if A iff B then C implies D xor E else F and G or not D)
+  ```
+
+  ```
+     1 Symbols:
+     2   • A
+     3   • B
+     4   • C
+     5   • D
+     6   • E
+     7   • F
+     8   • G
+  ```
+
+- __`eval`__ `symbols that are true :: List of Symbols` `symbols that are false :: List of Symbols` `expression :: Expression`
+
+  Evaluates the `expression` given a set of `symbols that are true` and `symbols
+  that are false`. If not every symbol in the `expression` appears in at least
+  one of the sets, then the `expression` will be partially evaluated and the
+  result will be in terms of those symbols that do not exists in neither set, in
+  Disjunctive Normal Form.
+
+  If some symbols that do not appear in the `expression` appear in one of the
+  list of symbols, __boolexman__ will display a warning at the top of its
+  output, but otherwise will work as intended.
+
+  If some symbols appear in *both* lists of symbols, then __boolexman__ will
+  display an error.
+
+  __Example:__
+
+  ```
+     1> eval [A, D] [E] (if A iff B then C implies D xor E else F and G or not D)
+  ```
+
+  TODO: Update Output!
+  ```
+      1 First transform into CNF:
+      2 ((A v !B v !D v F) ^ (A v !B v !D v G) ^ (B v !A v !D v F) ^ (B v !A v !D v G) ^ (!A v !B v !C v !D v !E) ^ (!A v !B v !C v D v E) ^ (A v B v !C v !D v !E) ^ (A v B v !C v D v E) ^ (!C v !D v !E v F) ^ (
+      3
+      4 Eliminate all maxterms which constains a true symbol:
+      5   • [A,!B,!D,F]
+      6     is eliminated because A is true.
+      7   • [A,!B,!D,G]
+      8     is eliminated because A is true.
+      9   • [!A,!B,!C,!D,!E]
+     10     is eliminated because !E is true.
+     11   • [!A,!B,!C,D,E]
+     12     is eliminated because D is true.
+     13   • [A,B,!C,!D,!E]
+     14     is eliminated because A is true.
+     15   • [A,B,!C,D,E]
+     16     is eliminated because A is true.
+     17   • [!C,!D,!E,F]
+     18     is eliminated because !E is true.
+     19   • [!C,!D,!E,G]
+     20     is eliminated because !E is true.
+     21
+     22
+     23 After all:
+     24 ((B v !A v !D v F) ^ (B v !A v !D v G))
+     25
+     26 Transform into DNF:
+     27 (B v (B ^ !A) v (B ^ !D) v (B ^ G) v (!A ^ B) v !A v (!A ^ !D) v (!A ^ G) v (!D ^ B) v (!D ^ !A) v !D v (!D ^ G) v (F ^ B) v (F ^ !A) v (F ^ !D) v (F ^ G))
+     28
+     29 Eliminate all minterms which constains a false symbol:
+     30   • [B,!A]
+     31     is eliminated because !A is false.
+     32   • [B,!D]
+     33     is eliminated because !D is false.
+     34   • [!A,B]
+     35     is eliminated because !A is false.
+     36   • [!A]
+     37     is eliminated because !A is false.
+     38   • [!A,!D]
+     39     is eliminated because !A is false.
+     40   • [!A,G]
+     41     is eliminated because !A is false.
+     42   • [!D,B]
+     43     is eliminated because !D is false.
+     44   • [!D,!A]
+     45     is eliminated because !A is false.
+     46   • [!D]
+     47     is eliminated because !D is false.
+     48   • [!D,G]
+     49     is eliminated because !D is false.
+     50   • [F,!A]
+     51     is eliminated because !A is false.
+     52   • [F,!D]
+     53     is eliminated because !D is false.
+     54
+     55
+     56 After all:
+     57 (B v (B ^ G) v (F ^ B) v (F ^ G))
+  ```
 
 
-```
-quit
 
-help
+  ```
+  quit
 
-tabulate (P and Q and R or S implies T)
+  help
 
-subexpressions ((P and Q and R) or (S implies T))
+  tabulate (P and Q and R or S implies T)
 
-symbols ((P and Q and R) or (S implies T))
+  subexpressions ((P and Q and R) or (S implies T))
 
-eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
+  symbols ((P and Q and R) or (S implies T))
 
-toDNF ((P and Q and R) or (S implies T))
-toCNF ((P and Q and R) or (S implies T))
+  eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
 
-resolve (((P and Q and R) or (S implies T)))
+  toDNF ((P and Q and R) or (S implies T))
+  toCNF ((P and Q and R) or (S implies T))
 
-entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
-```
+  resolve (((P and Q and R) or (S implies T)))
+
+  entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
+  ```
 
 ### Syntax
 

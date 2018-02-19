@@ -19,7 +19,7 @@ import Data.List (nub)
 import Test.QuickCheck
 
 import DataTypes
-import Engine.Other (negateIn, evalS, evaluations, equivalent)
+import Engine.Other (evalS, evaluations, equivalent)
 import Utils (combine, combinations)
 
 prop_transformerMaybe :: (Expr -> Maybe Expr) -> Expr -> Property
@@ -142,7 +142,7 @@ prop_flatten = prop_transformerAll flatten
 
 distributeAND :: Expr -> Maybe Expr
 distributeAND (Eand subexprs) =
-    let orSubexprs    = filter (\se -> case se of Eor _ -> True; _ -> False) subexprs
+    let orSubexprs    = filter isOR subexprs
         nonOrSubexprs = filter (`notElem` orSubexprs) subexprs
     in  if   null orSubexprs
         then Nothing
@@ -166,7 +166,7 @@ prop_distributeNOT = prop_transformerMaybe distributeNOT
 
 distributeOR :: Expr -> Maybe Expr
 distributeOR (Eor subexprs) =
-    let andSubexprs    = filter (\se -> case se of Eand _ -> True; _ -> False) subexprs
+    let andSubexprs    = filter isAND subexprs
         nonAndSubexprs = filter (`notElem` andSubexprs) subexprs
     in  if   null andSubexprs
         then Nothing
@@ -184,8 +184,8 @@ eliminateITE :: Expr -> Maybe Expr
 eliminateITE (Eite cond cons alt) = Just $ Eor [Eand [cond, cons], Eand [Enot cond, alt]]
 eliminateITE _ = Nothing
 
-prop_eliminateITE :: Expr -> Property
-prop_eliminateITE = prop_transformerMaybe eliminateITE
+prop_eliminateITE :: Expr -> Expr -> Expr -> Property
+prop_eliminateITE cond cons alt = prop_transformerMaybe eliminateITE $ Eite cond cons alt
 
 {-| eliminateIFF eliminates the given if-and-only-if expression of form
 (Γ1 <=> Γ2 <=> ... <=> Γn) by replacing it with (!(Γ1 + Γ2 + ... + Γn)); if the
@@ -197,8 +197,8 @@ eliminateIFF (Eiff ses) = if   length ses `mod` 2 == 0
                           else Just $ eXOR ses
 eliminateIFF _ = Nothing
 
-prop_eliminateIFF :: Expr -> Property
-prop_eliminateIFF = prop_transformerMaybe eliminateIFF
+prop_eliminateIFF :: [Expr] -> Property
+prop_eliminateIFF subexprs = length subexprs >= 2 ==> prop_transformerMaybe eliminateIFF $ eIFF subexprs
 
 {-| eliminateIMP eliminates the given implies expressions of form (Γ1 => Γ2) by
 replacing it with (!Γ1 v Γ2); if the given expression is of another form, then
@@ -208,20 +208,21 @@ eliminateIMP :: Expr -> Maybe Expr
 eliminateIMP (Eimp cond cons) = Just $ Eor [Enot cond, cons]
 eliminateIMP _ = Nothing
 
-prop_eliminateIMP :: Expr -> Property
-prop_eliminateIMP = prop_transformerMaybe eliminateIMP
+prop_eliminateIMP :: Expr -> Expr -> Property
+prop_eliminateIMP cond cons = prop_transformerMaybe eliminateIMP $ Eimp cond cons
 
 eliminateXORcnf :: Expr -> Maybe Expr
-eliminateXORcnf (Exor subexprs) =
-    let negationCounts = [0,2..length subexprs]
-        negationCombinations = concatMap (combinations subexprs) negationCounts :: [[Expr]]
-        negatedSubexprs = map (negateIn subexprs) negationCombinations :: [[Expr]]
-    -- reverse makes the output easier to understand (try it!)
-    in  Just $ eAND $ reverse $ map eOR negatedSubexprs
+eliminateXORcnf (Exor subexprs) = Just $ eAND $ map eOR $ concatMap (twisted subexprs) [0,2..length subexprs]
+    where
+        twisted :: [Expr] -> Int -> [[Expr]]
+        twisted xs n = map (yadsi xs) $ combinations [0,1..length xs - 1] n
+
+        yadsi :: [Expr] -> [Int] -> [Expr]
+        yadsi xs is = [if e `elem` is then Enot x else x | (e, x) <- zip [0..] xs]
 eliminateXORcnf _ = Nothing
 
-prop_eliminateXORcnf :: Expr -> Property
-prop_eliminateXORcnf = prop_transformerMaybe eliminateXORcnf
+prop_eliminateXORcnf :: [Expr] -> Property
+prop_eliminateXORcnf subexprs = length subexprs >= 2 ==> prop_transformerMaybe eliminateXORcnf $ eXOR subexprs
 
 -- replace, deep first!
 replace :: (Expr -> Maybe Expr) -> Expr -> Expr

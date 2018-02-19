@@ -21,8 +21,7 @@ import System.IO
 import System.Console.Readline
 import Text.Regex.TDFA
 
-import qualified Safe as Safe
-
+import DataTypes
 import Engine.Commands
 import Parser
 import View
@@ -32,7 +31,6 @@ main :: IO ()
 main = do
     putStrLn "boolexman - boolean expression manipulator | v0.1.0.0"
     loop 1
-
 
 loop :: Integer -> IO ()
 loop no = do
@@ -52,7 +50,7 @@ loop no = do
 process :: String -> String
 process s =
     let s'       = normaliseString s
-        command  = Safe.head "MA 55" $ splitOn " " s'
+        command  = head $ splitOn " " s'
         argument = drop (length command + 1) s'  -- +1 for the space character
 
         -- CAPTURES the expression enclosed in parantheses
@@ -63,30 +61,16 @@ process s =
         -- symbolListCRE = "\\[(" ++ symbolRE ++ "(?: ?, ?" ++ symbolRE ++ ")*)\\]"
         symbolListCRE = "\\[(.*)\\]"
     in case command of
-        "tabulate" ->
-            let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
-            in  if   null expression
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expression in parantheses)"
-                else case parse argument of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> "riiight"
-        "subexpressions" ->
-            let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
-            in  if   null expression
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expression in parantheses)"
-                else case parse argument of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> viewSubexpressions $ subexpressions exp
-        "symbols" ->
-            let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
-            in  if   null expression
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expression in parantheses)"
-                else case parse argument of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> viewSymbols $ symbols exp
+        "tabulate" -> case parseSoleExpression argument of
+            Left err  -> err
+            Right exp -> "riight"
+        "subexpressions" -> case parseSoleExpression argument of
+            Left  err -> err
+            Right exp -> viewSubexpressions $ subexpressions exp
+        "symbols" -> case parseSoleExpression argument of
+            Left  err -> err
+            Right exp -> viewSymbols $ symbols exp
+
         -- TODO: This looks really ugly, isn't there a neater way?
         "eval" -> -- eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
             let (_, _, _, matches) = argument =~ (symbolListCRE ++ ' ' : symbolListCRE ++ ' ' : expressionCRE) :: (String, String, String, [String])
@@ -99,32 +83,15 @@ process s =
                         Right falseSymbols -> case parse $ matches !! 2 of
                             Left err  -> "Parsing Error: " ++ err ++ "(in the expression)"
                             Right exp -> viewEval $ eval trueSymbols falseSymbols exp -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
-                            --
-
-        "toDNF" ->
-            let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
-            in  if   null expression
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expression in parantheses)"
-                else case parse argument of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> viewDNF $ toDNF exp
-        "toCNF" ->
-            let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
-            in  if   null expression
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expression in parantheses)"
-                else case parse argument of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> viewCNF $ toCNF exp
-        "resolve" ->
-            let (_, expression, _) = argument =~ expressionCRE :: (String, String, String)
-            in  if   null expression
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expression in parantheses)"
-                else case parse argument of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> viewResolution $ resolve exp
+        "toDNF" -> case parseSoleExpression argument of
+            Left  err -> err
+            Right exp -> viewDNF $ toDNF exp
+        "toCNF" -> case parseSoleExpression argument of
+            Left  err -> err
+            Right exp -> viewCNF $ toCNF exp
+        "resolve" -> case parseSoleExpression argument of
+            Left  err -> err
+            Right exp -> viewResolution $ resolve exp
         "entail" -> -- ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
             let (_, _, _, expressions) = argument =~ (expressionCRE ++ " " ++ expressionCRE)
                                          :: (String, String, String, [String])
@@ -135,4 +102,14 @@ process s =
                     Left err  -> "Parsing Error: " ++ err
                     Right exp -> show $ entail (exp !! 0) (exp !! 1)
         command ->
-            "Error: Unknown command!"
+            "Error: Unknown command: `" ++ command ++ "`"
+    where
+        parseSoleExpression :: String -> Either String Expr
+        parseSoleExpression str =
+            let (a, expression, b) = str =~ "\\((.*)\\)" :: (String, String, String)
+            in  if   null expression || not (null a) || not (null b)
+                then Left $    "Parsing Error: could not parse the argument! (make"
+                            ++ "  sure you enclose the expression in parantheses)"
+                else case parse str of
+                    Left err  -> Left $ "Parsing Error: " ++ err
+                    Right exp -> Right exp

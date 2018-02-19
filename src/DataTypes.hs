@@ -22,8 +22,6 @@ import Debug.Trace
 import Test.QuickCheck
 import Test.QuickCheck.Arbitrary
 
-import qualified Safe as Safe
-
 data Expr = Enot Expr
           | Eimp Expr Expr
           | Eite Expr Expr Expr
@@ -126,7 +124,7 @@ boxAppend padding strings =
         listOfFixedWidthLines = map (\lines' -> map (fixedWidth (longest lines')) lines') listOfLines :: [[String]]
         listOfSameHeightFixedWidthLines = map (fixedHeight (longest listOfFixedWidthLines)) listOfFixedWidthLines :: [[String]]
     in
-        foldr1 (\a b -> a ++ "\n" ++ b) $ map (\i -> append $ map (\x -> x !! i) listOfSameHeightFixedWidthLines) [0..length (Safe.head "DT 128" listOfSameHeightFixedWidthLines) - 1]
+        foldr1 (\a b -> a ++ "\n" ++ b) $ map (\i -> append $ map (\x -> x !! i) listOfSameHeightFixedWidthLines) [0..length (head listOfSameHeightFixedWidthLines) - 1]
     where
         append :: [String] -> String
         append = foldr1 (\a b -> a ++ padding ++ b)
@@ -136,7 +134,7 @@ boxAppend padding strings =
 
         fixedHeight :: Int -> [String] -> [String]
         fixedHeight height strs
-            | length strs <= height = replicate (height - length strs) (replicate (length $ Safe.head "DT 138" strs) ' ') ++ strs
+            | length strs <= height = replicate (height - length strs) (replicate (length $ head strs) ' ') ++ strs
             | otherwise = error "strs is taller than height!"
 
         fixedWidth :: Int -> String -> String
