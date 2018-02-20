@@ -24,24 +24,33 @@ import Engine.Transformers
 import Engine.Other
 import Utils (cartesianProduct, combinations)
 
-subexpressions :: Expr -> SET
-subexpressions e@(Enot se) = SET e [subexpressions se]
-subexpressions e@(Eimp cond cons) = SET e [subexpressions cond, subexpressions cons]
-subexpressions e@(Eite cond cons alt) = SET e [subexpressions cond, subexpressions cons, subexpressions alt]
-subexpressions e@(Eand ses) = SET e $ map subexpressions ses
-subexpressions e@(Eor ses)  = SET e $ map subexpressions ses
-subexpressions e@(Exor ses) = SET e $ map subexpressions ses
-subexpressions e@(Eiff ses) = SET e $ map subexpressions ses
-subexpressions e@(Esym _) = SET e []
-subexpressions Etrue  = SET Etrue []
-subexpressions Efalse = SET Efalse []
+subexpressions :: Expr -> SubexpressionsResult
+subexpressions expr = let set = recurse expr
+                      in SubexpressionsResult { set  = set
+                                              , list = flattenSET set
+                                              }
+    where
+        recurse :: Expr -> SET
+        recurse e@(Enot se) = SET e [recurse se]
+        recurse e@(Eimp cond cons) = SET e [recurse cond, recurse cons]
+        recurse e@(Eite cond cons alt) = SET e [recurse cond, recurse cons, recurse alt]
+        recurse e@(Eand ses) = SET e $ map recurse ses
+        recurse e@(Eor ses)  = SET e $ map recurse ses
+        recurse e@(Exor ses) = SET e $ map recurse ses
+        recurse e@(Eiff ses) = SET e $ map recurse ses
+        recurse e@(Esym _) = SET e []
+        recurse Etrue  = SET Etrue []
+        recurse Efalse = SET Efalse []
+
+        flattenSET :: SET -> [Expr]
+        flattenSET (SET expr sets) = sort $ nub $ expr : concatMap flattenSET sets
 
 symbols = symbols'
 
 tabulate :: Expr -> ([Expr], [[Bool]])
 tabulate expr =
     let syms     = symbols expr
-        subexprs = sort $ flattenSET $ subexpressions expr
+        subexprs = sort $ list $ subexpressions expr
         evals    = sort $ map (\(ts, fs) -> map (evalS ts fs) subexprs) $ evaluations expr
     in (subexprs, evals)
 
@@ -136,20 +145,21 @@ eval trueSymbols falseSymbols expr =
         sop = clausalForm dnf  -- sum of products
     in  EvalResult { redundantTrueSymbols  = filter (`notElem` symbols expr) trueSymbols
                    , redundantFalseSymbols = filter (`notElem` symbols expr) falseSymbols
-                   , cnf                   = cnf
+                   , productOfSums         = pos
                    , trueEliminations      = evaluationsCNF trueSymbols falseSymbols pos
-                   , postTrueElimination   = pTE
-                   , dnf                   = dnf
+                   , postTrueElimination   = clausalForm pTE
+                   , sumOfProducts         = sop
                    , falseEliminations     = evaluationsDNF trueSymbols falseSymbols sop
-                   , postFalseElimination  = evalDNF trueSymbols falseSymbols sop
+                   , postFalseElimination  = clausalForm $ evalDNF trueSymbols falseSymbols sop
+                   , result                = evalDNF trueSymbols falseSymbols sop
                    }
 
 prop_eval :: Expr -> Bool
 prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toExpr (evalS ts fs expr)) $ evaluations expr
     where
-        toExpr :: Bool -> Expr
-        toExpr True  = Etrue
-        toExpr False = Efalse
+        toExpr :: Bool -> [[Expr]]
+        toExpr True  = [[Etrue]]
+        toExpr False = [[Efalse]]
 
 -- RANDOM EXAMPLES
 --   entail (A v B v C ^ D) (A ^ B ^ C => (E => (D => (Z => E))))
@@ -274,7 +284,7 @@ resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
         shouldStrike exprs = any (\expr -> Enot expr `elem` exprs) exprs
 
 prop_resolve :: Expr -> Bool
-prop_resolve expr = satisfiable (resolve expr) == any (\(ts, fs) -> postFalseElimination (eval ts fs expr) == Etrue) (evaluations expr)
+prop_resolve expr = satisfiable (resolve expr) == any (\(ts, fs) -> evalS ts fs expr) (evaluations expr)
     where
         satisfiable :: Resolution -> Bool
         satisfiable res = not ([[], [Efalse]] `elemN` (initialStep res) || any ([[], [Efalse]] `elemN`) (map snd (resolutionSteps res)))

@@ -262,18 +262,19 @@ instance Arbitrary Expr where
 
 -- SET: Sub-Expression Tree
 data SET = SET Expr [SET] deriving Eq
-
-flattenSET :: SET -> [Expr]
-flattenSET (SET expr sets) = sort $ nub $ expr : concatMap flattenSET sets
+data SubexpressionsResult = SubexpressionsResult { set  :: SET
+                                                 , list :: [Expr]
+                                                 }
 
 data EvalResult = EvalResult { redundantTrueSymbols  :: [Expr]
                              , redundantFalseSymbols :: [Expr]
-                             , cnf                   :: Expr
+                             , productOfSums         :: [[Expr]]
                              , trueEliminations      :: [(Expr, [Expr])]
-                             , postTrueElimination   :: Expr
-                             , dnf                   :: Expr
+                             , postTrueElimination   :: [[Expr]]
+                             , sumOfProducts         :: [[Expr]]
                              , falseEliminations     :: [(Expr, [Expr])]
-                             , postFalseElimination  :: Expr
+                             , postFalseElimination  :: [[Expr]]
+                             , result                :: Expr
                              } deriving (Show)
 
 parens :: String -> String

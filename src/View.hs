@@ -72,6 +72,11 @@ viewTabulate expr (headers, rows) =
                                   in  replicate leftPadLen ' ' ++ str ++ replicate rightPadLen ' '
             | otherwise = error "str is longer than len!"
 
+{-
+TODO BUG
+9> resolve (if A iff !B then C implies D xor !E else F and !G or not !D and E)
+boolexman: src/View.hs:95:55-108: Irrefutable pattern failed for pattern [(_, status)]
+-}
 viewResolution :: Resolution -> String
 viewResolution res =    bold "Resolution:"
                      ++ "\n"
@@ -109,15 +114,15 @@ showSET = recurse 0
                 nl          = '\n' : linePrefix
             in  show expr ++ nl ++ foldr1 (\a b -> a ++ nl ++ b) (map (recurse $ level + 1) sets)
 
-viewSubexpressions :: Expr -> SET -> String
-viewSubexpressions expr set =
+viewSubexpressions :: Expr -> SubexpressionsResult -> String
+viewSubexpressions expr res =
                printHeader (bold "subexpressions" ++ " " ++ underline (show expr))
     ++ "\n"
     ++ "\n" ++ bold "Sub-Expression Tree:"
-    ++ "\n" ++ concatMap (\l -> "  " ++ l ++ "\n") (lines $ showSET set)
+    ++ "\n" ++ concatMap (\l -> "  " ++ l ++ "\n") (lines $ showSET $ set res)
     ++ "\n"
     ++ "\n" ++ bold "Sub-Expression List:"
-    ++ "\n" ++ prettifyList (map show $ flattenSET set)
+    ++ "\n" ++ prettifyList (map show $ list res)
 
 viewSymbols :: Expr -> [Expr] -> String
 viewSymbols expr ss =
@@ -125,59 +130,69 @@ viewSymbols expr ss =
     ++ "\n"
     ++ "\n" ++ prettifyList (map (\(Esym s) -> s) ss)
 
-viewCNF :: [([(Expr, Expr)], Expr)] -> String
-viewCNF ts =
-        bold "0 - First eliminate ITE:\n"
-     ++ prettifyList (map showPair $ fst (ts !! 0))
-     ++ "After all:\n    " ++ show (snd $ ts !! 0)
-     ++ "\n\n"
-     ++ bold "1 - Then eliminate IFF:\n"
-     ++ prettifyList (map showPair $ fst (ts !! 1))
-     ++ "After all:\n    " ++ show (snd $ ts !! 1)
-     ++ "\n\n"
-     ++ bold "2 - Then eliminate IMP:\n"
-     ++ prettifyList (map showPair $ fst (ts !! 2))
-     ++ "After all:\n    " ++ show (snd $ ts !! 2)
-     ++ "\n\n"
-     ++ bold "3 - Then eliminate XORs:\n"
-     ++ prettifyList (map showPair $ fst (ts !! 3))
-     ++ "After all:\n    " ++ show (snd $ ts !! 3)
-     ++ "\n\n"
-     ++ bold "4- Then distribute NOTs:\n"
-     ++ prettifyList (map showPair $ fst (ts !! 4))
-     ++ "After all:\n    " ++ show (snd $ ts !! 4)
-     ++ "\n\n"
-     ++ bold "5 - ORs over ANDs:\n"
-     ++ prettifyList (map showPair $ fst (ts !! 5))
-     ++ "After all:\n    " ++ show (snd $ ts !! 5)
-     ++ "\n"
+viewXNF :: String -> String -> [([(Expr, Expr)], Expr)] -> String
+viewXNF sixthStep sixthStep' ts =
+    bold "1. Transform all if-then-else (ITE) expressions:\n"
+ ++ (
+        if   null $ fst $ ts !! 0
+        then "  No ITE expression is found!\n"
+        else prettifyList (map showPair $ fst (ts !! 0))
+ )
+ ++ "\n" ++ bold "After all ITE expressions are transformed:\n  " ++ show (snd $ ts !! 0)
+ ++ "\n\n"
+ ++ bold "2. Transform all if-and-only-if (IFF) expressions:\n"
+ ++ (
+        if   null $ fst $ ts !! 1
+        then "  No IFF expression is found!\n"
+        else prettifyList (map showPair $ fst (ts !! 1))
+ )
+ ++ "\n" ++ bold "After all IFF expressions are transformed:\n  " ++ show (snd $ ts !! 1)
+ ++ "\n\n"
+ ++ bold "3. Tranform all implications:\n"
+ ++ (
+        if   null $ fst $ ts !! 2
+        then "  No implication is found!\n"
+        else prettifyList (map showPair $ fst (ts !! 2))
+ )
+ ++ "\n" ++ bold "After all implications are transformed:\n  " ++ show (snd $ ts !! 2)
+ ++ "\n\n"
+ ++ bold "4. Tranform all exclusive-or (XOR) expressions:\n"
+ ++ (
+        if   null $ fst $ ts !! 3
+        then "  No XOR expression is found!\n"
+        else prettifyList (map showPair $ fst (ts !! 3))
+ )
+ ++ "\n" ++ bold "After all XOR expressions are transformed:\n  " ++ show (snd $ ts !! 3)
+ ++ "\n\n"
+ ++ bold "5. Distribute NOTs:\n"
+ ++ (
+        if   null $ fst $ ts !! 4
+        then "  No distributable NOT is found!\n"
+        else prettifyList (map showPair $ fst (ts !! 4))
+ )
+ ++ "\n" ++ bold "After all NOTs are distributed:\n  " ++ show (snd $ ts !! 4)
+ ++ "\n\n"
+ ++ bold ("6. " ++ sixthStep ++ ":\n")
+ ++ (
+        if   null $ fst $ ts !! 5
+        then "  " ++ sixthStep' ++ "\n"
+        else prettifyList (map showPair $ fst (ts !! 5))
+ )
+ ++ "\n" ++ bold "Resultant expression:\n  " ++ show (snd $ ts !! 5)
+ ++ "\n"
 
-viewDNF :: [([(Expr, Expr)], Expr)] -> String
-viewDNF ts =
-       bold "0 - First eliminate ITE:\n"
-    ++ prettifyList (map showPair $ fst (ts !! 0))
-    ++ "After all:\n    " ++ show (snd $ ts !! 0)
-    ++ "\n\n"
-    ++ bold "1 - Then eliminate IFF:\n"
-    ++ prettifyList (map showPair $ fst (ts !! 1))
-    ++ "After all:\n    " ++ show (snd $ ts !! 1)
-    ++ "\n\n"
-    ++ bold "2 - Then eliminate IMP:\n"
-    ++ prettifyList (map showPair $ fst (ts !! 2))
-    ++ "After all:\n    " ++ show (snd $ ts !! 2)
-    ++ "\n\n"
-    ++ bold "3 - Eliminate XOR:\n"
-    ++ prettifyList (map showPair $ fst (ts !! 3))
-    ++ "After all:\n    " ++ show (snd $ ts !! 3)
-    ++ "\n\n"
-    ++ bold "4 - Distribute NOT:\n"
-    ++ prettifyList (map showPair $ fst (ts !! 4))
-    ++ "After all:\n    " ++ show (snd $ ts !! 4)
-    ++ "\n\n"
-    ++ bold "5 - AND over OR:\n"
-    ++ prettifyList (map showPair $ fst (ts !! 5))
-    ++ "After all:\n    " ++ show (snd $ ts !! 5)
+
+viewCNF :: Expr -> [([(Expr, Expr)], Expr)] -> String
+viewCNF expr ts =
+               printHeader (bold "toCNF" ++ " " ++ underline (show expr))
     ++ "\n"
+    ++ "\n" ++ viewXNF "Distribute ORs over ANDs" "No distributable OR statement is found!" ts
+
+viewDNF :: Expr -> [([(Expr, Expr)], Expr)] -> String
+viewDNF expr ts =
+               printHeader (bold "toDNF" ++ " " ++ underline (show expr))
+    ++ "\n"
+    ++ "\n" ++ viewXNF "Distribute ANDs over ORs" "No distributable AND statement is found!" ts
 
 viewEval :: [Expr] -> [Expr] -> Expr -> EvalResult -> String
 viewEval ts fs expr r =
@@ -185,26 +200,40 @@ viewEval ts fs expr r =
      ++ "\n"
      ++ "\n" ++ (
         if   not (null (redundantTrueSymbols r)) || not (null (redundantFalseSymbols r))
-        then    bold "ATTENTION: Some of the true/false symbols have not been found in the expression!\n"
-             ++ (if not (null (redundantTrueSymbols  r)) then "Redundant True Symbols: "  ++ show (redundantTrueSymbols  r) else "")
-             ++ (if not (null (redundantFalseSymbols r)) then "Redundant False Symbols: " ++ show (redundantFalseSymbols r) else "")
+        then    bold "WARNING: Some of the true/false symbols have not been found in the expression!\n"
+             ++ (if not (null (redundantTrueSymbols  r)) then "  Redundant True Symbols : " ++ show (redundantTrueSymbols  r) else "")
+             ++ (if not (null (redundantFalseSymbols r)) then "\n  Redundant False Symbols: " ++ show (redundantFalseSymbols r) else "")
              ++ "\n\n"
         else "")
-     ++ bold "First transform into CNF:" ++ "\n"
-     ++ show (cnf r) ++ "\n\n"
-     ++ bold "Eliminate all maxterms which constains a true symbol:" ++ "\n"
-     ++ prettifyList (map (showPair2 "true") $ trueEliminations r) ++ "\n\n"
-     ++ bold "After all:" ++ "\n"
-     ++ show (postTrueElimination r) ++ "\n\n"
-     ++ bold "Transform into DNF:" ++ "\n"
-     ++ show (dnf r) ++ "\n\n"
-     ++ bold "Eliminate all minterms which constains a false symbol:" ++ "\n"
-     ++ prettifyList (map (showPair2 "false") $ falseEliminations r) ++ "\n\n"
-     ++ bold "After all:" ++ "\n"
-     ++ show (postFalseElimination r) ++ "\n\n"
+     ++ bold "1. Transform into Conjunctive Normal Form:" ++ "\n"
+     ++ prettifyList (map showClause $ productOfSums r) ++ "\n"
+     ++ bold "2. Eliminate all maxterms which constains a true symbol:" ++ "\n"
+     ++ (
+        if null $ trueEliminations r
+        then "  No maxterms are eliminated.\n"
+        else prettifyList (map (showPair2 "true") $ trueEliminations r)
+     ) ++ "\n"
+     ++ bold "Remaining maxterms:" ++ "\n"
+     ++ prettifyList (map showClause $ postTrueElimination r) ++ "\n"
+     ++ bold "3. Transform into Disjunctive Normal Form:" ++ "\n"
+     ++ prettifyList (map showClause $ sumOfProducts r) ++ "\n"
+     ++ bold "4. Eliminate all minterms which constains a false symbol:" ++ "\n"
+     ++ (
+        if   null $ falseEliminations r
+        then "  No minterms are eliminated.\n"
+        else prettifyList (map (showPair2 "false") $ falseEliminations r)
+     ) ++ "\n"
+     ++ bold "Remaining minterms:" ++ "\n"
+     ++ prettifyList (map showClause $ postFalseElimination r)
+     ++ "\n" ++ bold "Resultant expression:"
+     ++ "\n" ++ "  " ++ show (result r)
+    where
+        showClause :: [Expr] -> String
+        showClause [] = "{}"
+        showClause xs = "{" ++ foldr1 (\a b -> a ++ ", " ++ b) (map show xs) ++ "}"
 
-showPair2 :: String -> (Expr, [Expr]) -> String
-showPair2 tf (sym, maxterm) = show maxterm ++ "\nis eliminated because " ++ show sym ++ " is " ++ tf ++ "."
+        showPair2 :: String -> (Expr, [Expr]) -> String
+        showPair2 tf (sym, term) = showClause term ++ "\nis eliminated because " ++ show sym ++ " is " ++ tf ++ "."
 
 showPair :: (Expr, Expr) -> String
 showPair (orig, new) = show orig ++ "\nis transformed into\n" ++ show new

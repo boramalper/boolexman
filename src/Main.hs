@@ -85,13 +85,13 @@ process s =
                             Right expr -> viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
         "toDNF" -> case parseSoleExpression argument of
             Left  err -> err
-            Right exp -> viewDNF $ toDNF exp
+            Right expr -> viewDNF expr $ toDNF expr
         "toCNF" -> case parseSoleExpression argument of
             Left  err -> err
-            Right exp -> viewCNF $ toCNF exp
+            Right expr -> viewCNF expr $ toCNF expr
         "resolve" -> case parseSoleExpression argument of
             Left  err -> err
-            Right exp -> viewResolution $ resolve exp
+            Right expr -> viewResolution $ resolve expr
         "entail" -> -- ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
             let (_, _, _, expressions) = argument =~ (expressionCRE ++ " " ++ expressionCRE)
                                          :: (String, String, String, [String])
