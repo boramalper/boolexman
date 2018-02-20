@@ -15,7 +15,7 @@ THIS SOFTWARE.
 -}
 module Engine.Commands where
 
-import Data.List (nub, delete, (\\))
+import Data.List (nub, delete, sort, sortBy, (\\))
 import Debug.Trace
 import Test.QuickCheck
 
@@ -37,6 +37,37 @@ subexpressions Etrue  = SET Etrue []
 subexpressions Efalse = SET Efalse []
 
 symbols = symbols'
+
+tabulate :: Expr -> ([Expr], [[Bool]])
+tabulate expr =
+    let syms     = symbols expr
+        subexprs = sortBy sortCriteria $ flattenSET $ subexpressions expr
+        evals    = sort $ map (\(ts, fs) -> map (evalS ts fs) subexprs) $ evaluations expr
+    in (subexprs, evals)
+    where
+        {- Used to sort subexpressions by the following rules:
+            1. Symbols come before any other non-symbols.
+               1 (a). Symbols are ordered by their names in ascending order.
+            2. Non-symbols are ordered by the number of subexpressions they
+               conatain in ascending order.
+        -}
+        sortCriteria :: Expr -> Expr -> Ordering
+        sortCriteria (Esym a) (Esym b) = compare a b
+        sortCriteria (Esym _) b        = LT
+        sortCriteria a        (Esym b) = GT
+        sortCriteria a        b        = compare (length $ flattenSET $ subexpressions a) (length $ flattenSET $ subexpressions b)
+
+prop_tabulate :: Expr -> Bool
+prop_tabulate expr = let (headers, rows) = tabulate expr
+                     in     headers /= []
+                         && allSymbolsFirst headers
+                         && all (\row -> length row == length headers) rows
+    where
+        allSymbolsFirst :: [Expr] -> Bool
+        allSymbolsFirst [x]    = True
+        allSymbolsFirst (x:xs) = if   isSymbol x
+                                 then allSymbolsFirst xs
+                                 else not $ any isSymbol xs
 
 {- toCNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
 first element is (another list of tuples whose first element is the

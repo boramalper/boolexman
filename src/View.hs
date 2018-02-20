@@ -21,6 +21,39 @@ import System.Process
 
 import DataTypes
 
+viewTabulate :: ([Expr], [[Bool]]) -> String
+viewTabulate (headers, rows) =
+    let
+        {- BEWARE: The assumption is that headers will ALWAYS be longer than
+        the columns, which is always either ⊤ or ⊥.
+        -}
+        headers'   = map show headers
+        colLengths = map length headers'
+    in             "╔" ++ foldr1 (\a b -> a ++ "╤" ++ b) (map (`replicate` '═') colLengths) ++ "╗"
+        ++ "\n" ++ "║" ++ foldr1 (\a b -> a ++ "│" ++ b) (map bold headers')                ++ "║"
+        ++ "\n" ++ "╟" ++ foldr1 (\a b -> a ++ "┼" ++ b) (map (`replicate` '─') colLengths) ++ "╢"
+        ++ "\n" ++ foldr1 (\a b -> a ++ "\n" ++ b) (forEach (zip [0..] rows) (\(i, row) ->
+            "║" ++
+                (if i `mod` 2 == 1 then reverseText else id)
+                (foldr1 (\a b -> a ++ "│" ++ b) (zipWith (\len cell -> center len (showCell cell)) colLengths row))
+            ++ "║"
+        ))
+        ++ "\n" ++ "╚" ++ foldr1 (\a b -> a ++ "╧" ++ b) (map (`replicate` '═') colLengths) ++ "╝"
+
+    where
+        forEach :: [a] -> (a -> b) -> [b]
+        forEach a f = map f a
+
+        showCell :: Bool -> String
+        showCell True  = "⊤"
+        showCell False = "⊥"
+
+        center :: Int -> String -> String
+        center len str
+            | length str <= len = let leftPadLen  = (len - length str) `div` 2
+                                      rightPadLen = (len - length str) - leftPadLen
+                                  in  replicate leftPadLen ' ' ++ str ++ replicate rightPadLen ' '
+            | otherwise = error "str is longer than len!"
 
 viewResolution :: Resolution -> String
 viewResolution res =    bold "Resolution:"
@@ -182,3 +215,6 @@ bold s = "\x1b[1m" ++ s ++ "\x1b[0m"
 
 strike :: String -> String
 strike s = "\x1b[9m" ++ s ++ "\x1b[0m"
+
+reverseText :: String -> String
+reverseText s = "\x1b[7m" ++ s ++ "\x1b[0m"

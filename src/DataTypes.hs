@@ -46,6 +46,10 @@ isOR _ = False
 isIMP (Eimp _ _) = True
 isIMP _ = False
 
+isTrueFalse Etrue  = True
+isTrueFalse Efalse = True
+isTrueFalse _      = False
+
 -----------------------------------------
 -- SEQUENT CALCULUS
 

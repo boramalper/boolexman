@@ -63,7 +63,7 @@ process s =
     in case command of
         "tabulate" -> case parseSoleExpression argument of
             Left err  -> err
-            Right exp -> "riight"
+            Right exp -> viewTabulate $ tabulate exp
         "subexpressions" -> case parseSoleExpression argument of
             Left  err -> err
             Right exp -> viewSubexpressions $ subexpressions exp
