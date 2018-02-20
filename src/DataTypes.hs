@@ -22,17 +22,44 @@ import Debug.Trace
 import Test.QuickCheck
 import Test.QuickCheck.Arbitrary
 
-data Expr = Enot Expr
+data Expr = Efalse
+          | Etrue
+          | Esym String
+          | Enot Expr
           | Eimp Expr Expr
           | Eite Expr Expr Expr
           | Eand [Expr]
           | Eor  [Expr]
           | Exor [Expr]
           | Eiff [Expr]
-          | Esym String
-          | Etrue
-          | Efalse
     deriving Eq
+
+instance Ord Expr where
+    Efalse   <= _        = True
+    Etrue    <= Efalse   = False
+    Etrue    <= _        = True
+    (Esym _) <= Efalse   = False
+    (Esym _) <= Etrue    = False
+    (Esym a) <= (Esym b) = a <= b
+    (Esym _) <= _        = True
+    (Enot _) <= Efalse   = False
+    (Enot _) <= Etrue    = False
+    (Enot _) <= (Esym _) = False
+    (Enot a) <= (Enot b) = a <= b
+    a        <= b        = cardinality a <= cardinality b
+        where
+            -- cardinality is the total number of subexpressions
+            cardinality :: Expr -> Int
+            cardinality Efalse           = 1
+            cardinality Etrue            = 1
+            cardinality (Esym _)         = 1
+            cardinality (Enot subexpr)   = 1 + cardinality subexpr
+            cardinality (Eimp cond cons) = 1 + cardinality cond + cardinality cons
+            cardinality (Eite cond cons alt) = 1 + cardinality cond + cardinality cons + cardinality alt
+            cardinality (Eand subexprs) = 1 + sum (map cardinality subexprs)
+            cardinality (Eor  subexprs) = 1 + sum (map cardinality subexprs)
+            cardinality (Eiff subexprs) = 1 + sum (map cardinality subexprs)
+            cardinality (Exor subexprs) = 1 + sum (map cardinality subexprs)
 
 isNOT (Enot _) = True
 isNOT _ = False
@@ -65,37 +92,29 @@ instance Show Line where
             slist l = foldr1 (\a b -> a ++ ", " ++ b) $ map show l
 
 data Entailment = I Line
-                | F Line  -- failure!
+                | F Line  -- indicates failure
                 | Land Line Entailment
                 | Ror  Line Entailment
                 | Rimp Line Entailment
                 | Lnot Line Entailment
                 | Rnot Line Entailment
                 | Limp Line Entailment Entailment
-                | Lxor Line Entailment Entailment
-                | Rxor Line Entailment Entailment
-                | Liff Line Entailment Entailment
-                | Riff Line Entailment Entailment
                 | Lor  Line [Entailment]
                 | Rand Line [Entailment]
                 deriving (Eq)
 
 -- mp4man style, bottom up.
 instance Show Entailment where
-    show (I line) = showEntailment "I" line []
-    show (F line) = showEntailment "F" line []
-    show (Land line entailment) = showEntailment "^L" line [entailment]
-    show (Ror line entailment)  = showEntailment "vR" line [entailment]
-    show (Rimp line entailment)  = showEntailment "=>R" line [entailment]
-    show (Lnot line entailment)  = showEntailment "!L" line [entailment]
-    show (Rnot line entailment)  = showEntailment "!R" line [entailment]
-    show (Limp line ent1 ent2)   = showEntailment "=>L" line [ent1, ent2]
-    show (Lxor line ent1 ent2)   = showEntailment "+L" line [ent1, ent2]
-    show (Rxor line ent1 ent2)   = showEntailment "+R" line [ent1, ent2]
-    show (Liff line ent1 ent2)   = showEntailment "<=>L" line [ent1, ent2]
-    show (Riff line ent1 ent2)   = showEntailment "<=>R" line [ent1, ent2]
-    show (Lor   line ents)        = showEntailment "vL" line ents
-    show (Rand  line ents)        = showEntailment "^R" line ents
+    show (I line)               = showEntailment "I"   line []
+    show (F line)               = showEntailment "F"   line []
+    show (Land line entailment) = showEntailment "^L"  line [entailment]
+    show (Ror line entailment)  = showEntailment "vR"  line [entailment]
+    show (Rimp line entailment) = showEntailment "=>R" line [entailment]
+    show (Lnot line entailment) = showEntailment "!L"  line [entailment]
+    show (Rnot line entailment) = showEntailment "!R"  line [entailment]
+    show (Limp line ent1 ent2)  = showEntailment "=>L" line [ent1, ent2]
+    show (Lor   line ents)      = showEntailment "vL"  line ents
+    show (Rand  line ents)      = showEntailment "^R"  line ents
 
 showEntailment :: String -> Line -> [Entailment] -> String
 showEntailment rule line entailments =
@@ -149,10 +168,13 @@ boxAppend padding strings =
 width :: String -> Int
 width = maximum . map length . splitOn "\n"
 
--- data Entailment = Entailment Line Rule (Entailment, Maybe Entailment)
 data EntailmentResult = EntailmentResult { condITEeliminations    :: [(Expr, Expr)]
-                                         , condPostITEelimination :: Expr
+                                         , condIFFeliminations    :: [(Expr, Expr)]
+                                         , condXOReliminations    :: [(Expr, Expr)]
                                          , exprITEeliminations    :: [(Expr, Expr)]
+                                         , exprIFFeliminations    :: [(Expr, Expr)]
+                                         , exprXOReliminations    :: [(Expr, Expr)]
+                                         , condPostXORelimination :: Expr
                                          , exprPostITEelimination :: Expr
                                          , entailment             :: Entailment
                                          }
@@ -242,7 +264,7 @@ instance Arbitrary Expr where
 data SET = SET Expr [SET] deriving Eq
 
 flattenSET :: SET -> [Expr]
-flattenSET (SET expr sets) = nub $ expr : concatMap flattenSET sets
+flattenSET (SET expr sets) = sort $ nub $ expr : concatMap flattenSET sets
 
 data EvalResult = EvalResult { redundantTrueSymbols  :: [Expr]
                              , redundantFalseSymbols :: [Expr]

@@ -21,15 +21,32 @@ import System.Process
 
 import DataTypes
 
-viewTabulate :: ([Expr], [[Bool]]) -> String
-viewTabulate (headers, rows) =
+printHeader :: String -> String
+printHeader str = str ++ "\n" ++ replicate (visualLength str) '━'
+    where
+        {- visualLength calculates the "visual length" of a given string, by
+        ignoring the terminal escape sequences.
+        -}
+        visualLength :: String -> Int
+        visualLength str = length str - 4 * '\x1b' `countIn` str
+
+        countIn :: Eq a => a -> [a] -> Int
+        countIn t = length . filter (== t)
+
+viewEntailment :: EntailmentResult -> String
+viewEntailment res = undefined
+
+viewTabulate :: Expr -> ([Expr], [[Bool]]) -> String
+viewTabulate expr (headers, rows) =
     let
         {- BEWARE: The assumption is that headers will ALWAYS be longer than
         the columns, which is always either ⊤ or ⊥.
         -}
         headers'   = map show headers
         colLengths = map length headers'
-    in             "╔" ++ foldr1 (\a b -> a ++ "╤" ++ b) (map (`replicate` '═') colLengths) ++ "╗"
+    in             printHeader(bold "tabulate" ++ " " ++ underline (show expr))
+        ++ "\n"
+        ++ "\n" ++ "╔" ++ foldr1 (\a b -> a ++ "╤" ++ b) (map (`replicate` '═') colLengths) ++ "╗"
         ++ "\n" ++ "║" ++ foldr1 (\a b -> a ++ "│" ++ b) (map bold headers')                ++ "║"
         ++ "\n" ++ "╟" ++ foldr1 (\a b -> a ++ "┼" ++ b) (map (`replicate` '─') colLengths) ++ "╢"
         ++ "\n" ++ foldr1 (\a b -> a ++ "\n" ++ b) (forEach (zip [0..] rows) (\(i, row) ->
@@ -92,18 +109,21 @@ showSET = recurse 0
                 nl          = '\n' : linePrefix
             in  show expr ++ nl ++ foldr1 (\a b -> a ++ nl ++ b) (map (recurse $ level + 1) sets)
 
-viewSubexpressions :: SET -> String
-viewSubexpressions set =
-       bold "Sub-Expression Tree:\n"
-    ++ concatMap (\l -> "  " ++ l ++ "\n") (lines $ showSET set)
-    ++ "\n\n"
-    ++ bold "Sub-Expression List:\n"
-    ++ prettifyList (map show $ flattenSET set)
+viewSubexpressions :: Expr -> SET -> String
+viewSubexpressions expr set =
+               printHeader (bold "subexpressions" ++ " " ++ underline (show expr))
+    ++ "\n"
+    ++ "\n" ++ bold "Sub-Expression Tree:"
+    ++ "\n" ++ concatMap (\l -> "  " ++ l ++ "\n") (lines $ showSET set)
+    ++ "\n"
+    ++ "\n" ++ bold "Sub-Expression List:"
+    ++ "\n" ++ prettifyList (map show $ flattenSET set)
 
-viewSymbols :: [Expr] -> String
-viewSymbols ss =
-       bold "Symbols:\n"
-    ++ prettifyList (map (\(Esym s) -> s) ss)
+viewSymbols :: Expr -> [Expr] -> String
+viewSymbols expr ss =
+               printHeader (bold "symbols" ++ " " ++ underline (show expr))
+    ++ "\n"
+    ++ "\n" ++ prettifyList (map (\(Esym s) -> s) ss)
 
 viewCNF :: [([(Expr, Expr)], Expr)] -> String
 viewCNF ts =
@@ -159,9 +179,11 @@ viewDNF ts =
     ++ "After all:\n    " ++ show (snd $ ts !! 5)
     ++ "\n"
 
-viewEval :: EvalResult -> String
-viewEval r =
-        (
+viewEval :: [Expr] -> [Expr] -> Expr -> EvalResult -> String
+viewEval ts fs expr r =
+        printHeader (bold "eval" ++ " " ++ underline (show ts) ++ " " ++ underline (show fs) ++ " " ++ underline (show expr))
+     ++ "\n"
+     ++ "\n" ++ (
         if   not (null (redundantTrueSymbols r)) || not (null (redundantFalseSymbols r))
         then    bold "ATTENTION: Some of the true/false symbols have not been found in the expression!\n"
              ++ (if not (null (redundantTrueSymbols  r)) then "Redundant True Symbols: "  ++ show (redundantTrueSymbols  r) else "")
@@ -215,6 +237,9 @@ bold s = "\x1b[1m" ++ s ++ "\x1b[0m"
 
 strike :: String -> String
 strike s = "\x1b[9m" ++ s ++ "\x1b[0m"
+
+underline :: String -> String
+underline s = "\x1b[4m" ++ s ++ "\x1b[0m"
 
 reverseText :: String -> String
 reverseText s = "\x1b[7m" ++ s ++ "\x1b[0m"

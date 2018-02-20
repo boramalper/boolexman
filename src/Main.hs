@@ -62,14 +62,14 @@ process s =
         symbolListCRE = "\\[(.*)\\]"
     in case command of
         "tabulate" -> case parseSoleExpression argument of
-            Left err  -> err
-            Right exp -> viewTabulate $ tabulate exp
+            Left err   -> err
+            Right expr -> viewTabulate expr $ tabulate expr
         "subexpressions" -> case parseSoleExpression argument of
-            Left  err -> err
-            Right exp -> viewSubexpressions $ subexpressions exp
+            Left  err  -> err
+            Right expr -> viewSubexpressions expr $ subexpressions expr
         "symbols" -> case parseSoleExpression argument of
             Left  err -> err
-            Right exp -> viewSymbols $ symbols exp
+            Right expr -> viewSymbols expr $ symbols expr
 
         -- TODO: This looks really ugly, isn't there a neater way?
         "eval" -> -- eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
@@ -82,7 +82,7 @@ process s =
                         Left err           -> "Parsing Error: " ++ err ++ "(in the second list)"
                         Right falseSymbols -> case parse $ matches !! 2 of
                             Left err  -> "Parsing Error: " ++ err ++ "(in the expression)"
-                            Right exp -> viewEval $ eval trueSymbols falseSymbols exp -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
+                            Right expr -> viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
         "toDNF" -> case parseSoleExpression argument of
             Left  err -> err
             Right exp -> viewDNF $ toDNF exp

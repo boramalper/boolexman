@@ -41,21 +41,9 @@ symbols = symbols'
 tabulate :: Expr -> ([Expr], [[Bool]])
 tabulate expr =
     let syms     = symbols expr
-        subexprs = sortBy sortCriteria $ flattenSET $ subexpressions expr
+        subexprs = sort $ flattenSET $ subexpressions expr
         evals    = sort $ map (\(ts, fs) -> map (evalS ts fs) subexprs) $ evaluations expr
     in (subexprs, evals)
-    where
-        {- Used to sort subexpressions by the following rules:
-            1. Symbols come before any other non-symbols.
-               1 (a). Symbols are ordered by their names in ascending order.
-            2. Non-symbols are ordered by the number of subexpressions they
-               conatain in ascending order.
-        -}
-        sortCriteria :: Expr -> Expr -> Ordering
-        sortCriteria (Esym a) (Esym b) = compare a b
-        sortCriteria (Esym _) b        = LT
-        sortCriteria a        (Esym b) = GT
-        sortCriteria a        b        = compare (length $ flattenSET $ subexpressions a) (length $ flattenSET $ subexpressions b)
 
 prop_tabulate :: Expr -> Bool
 prop_tabulate expr = let (headers, rows) = tabulate expr
@@ -167,34 +155,23 @@ prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toE
 --   entail (A v B v C ^ D) (A ^ B ^ C => (E => (D => (Z => E))))
 
 entail :: Expr -> Expr -> EntailmentResult
-entail cond expr = let condPostITEelimination  = eliminateAllITE cond
-                       exprPostITEelimination = eliminateAllITE expr
-                   in  EntailmentResult { condITEeliminations    = eliminationsITE cond
-                                        , condPostITEelimination = condPostITEelimination
-                                        , exprITEeliminations    = eliminationsITE expr
-                                        , exprPostITEelimination = exprPostITEelimination
-                                        , entailment             = recurse [condPostITEelimination] [exprPostITEelimination]
+entail cond expr = let condPostITEelimination = eliminateAllITE    cond
+                       condPostIFFelimination = eliminateAllIFF    condPostITEelimination
+                       condPostXORelimination = eliminateAllXORcnf condPostIFFelimination
+                       exprPostITEelimination = eliminateAllITE    expr
+                       exprPostIFFelimination = eliminateAllIFF    exprPostITEelimination
+                       exprPostXORelimination = eliminateAllXORcnf exprPostIFFelimination
+                   in  EntailmentResult { condITEeliminations    = eliminationsITE    cond
+                                        , condIFFeliminations    = eliminationsIFF    condPostITEelimination
+                                        , condXOReliminations    = eliminationsXORcnf condPostIFFelimination
+                                        , exprITEeliminations    = eliminationsITE    expr
+                                        , exprIFFeliminations    = eliminationsIFF    exprPostITEelimination
+                                        , exprXOReliminations    = eliminationsXORcnf exprPostIFFelimination
+                                        , condPostXORelimination = condPostXORelimination
+                                        , exprPostITEelimination = exprPostXORelimination
+                                        , entailment             = recurse [condPostXORelimination] [exprPostXORelimination]
                        }
     where
-        {-
-DONE        data Entailment = I Line
-DONE                        | F Line  -- failure!
-DONE                        | Land Line Entailment
-DONE                        | Ror  Line Entailment
-DONE                        | Lor  Line [Entailment]
-DONE                        | Rand Line [Entailment]
-DONE                        | Limp Line Entailment Entailment
-DONE                        | Rimp Line Entailment
-DONE                        | Lnot Line Entailment
-DONE                        | Rnot Line Entailment
-
-TODO: I feel there might be an optimised way for these...
-                        | Lxor Line Entailment Entailment
-                        | Rxor Line Entailment Entailment
-                        | Liff Line Entailment Entailment
-                        | Riff Line Entailment Entailment
-        -}
-
         takeOne :: Show a => (a -> Bool) -> [a] -> a
         takeOne f l = head [x | x <- l, f x]
 
@@ -238,10 +215,6 @@ prop_entail cond expr = if   doesEntail $ entailment $ entail cond expr
       doesEntail (Lnot _ subent) = doesEntail subent
       doesEntail (Rnot _ subent) = doesEntail subent
       doesEntail (Limp _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
-      doesEntail (Lxor _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
-      doesEntail (Rxor _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
-      doesEntail (Liff _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
-      doesEntail (Riff _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
       doesEntail (Lor  _ subents) = all doesEntail subents
       doesEntail (Rand _ subents) = all doesEntail subents
 
