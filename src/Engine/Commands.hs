@@ -256,9 +256,9 @@ resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
                     usedClauses       = filter (\clause -> resolvent `elem` clause || Enot resolvent `elem` clause) clauses
                     newClauses        = calcNewClauses resolvent clauses
                     strikenClauses    = filter shouldStrike newClauses
-                    dict              = map (\c -> (c, ResolvedBy resolvent)) usedClauses ++ map (\c -> (c, Striken)) strikenClauses
+                    dict              = map (\c -> (c, ResolvedBy resolvent)) usedClauses <++> map (\c -> (c, Striken)) strikenClauses
                     (nextRL, nextCD) = recurse $ (clauses \\ usedClauses) ++ (newClauses \\ strikenClauses)
-                in  ((resolvent, newClauses) : nextRL, dict ++ nextCD)
+                in  ((resolvent, newClauses) : nextRL, dict <++> nextCD)
            | otherwise = ([], [])
 
         just :: Maybe a -> Bool

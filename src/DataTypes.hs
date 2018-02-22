@@ -188,7 +188,7 @@ type Step   = [Clause]
 type Resolvent = Expr
 data ClauseStatus = ResolvedBy Resolvent
                   | Striken
-                  deriving Show
+                  deriving (Eq, Show)
 type ResolutionSteps = [(Resolvent, Step)]
 type ClauseStatuses  = [(Clause, ClauseStatus)]
 -- TODO: can we make this better? the data types I mean for linked & related list
@@ -279,3 +279,25 @@ data EvalResult = EvalResult { redundantTrueSymbols  :: [Expr]
 
 parens :: String -> String
 parens s = '(' : s ++ ")"
+
+-- DICTIONARY DATA TYPE
+(<++>) :: Eq k => Eq v => [(k,v)] -> [(k,v)] -> [(k,v)]
+(<++>) as bs
+    | all (\b -> b `notElem` as || snd b == as <!> fst b) bs =
+        nub $ as ++ bs
+    | otherwise =
+        error "lists have keys with different values!"
+
+(<!>) :: Eq k => [(k,v)] -> k -> v
+(<!>) dict key =
+    case [v | (k,v) <- dict, k == key] of
+        []  -> error "invalid operation! <!> on dict where key does not exist!"
+        [v] -> v
+        _   -> error "corrupt dict! multiple keys found."
+
+(<!?>) :: Eq k => [(k,v)] -> k -> Maybe v
+(<!?>) dict key =
+    case [v | (k,v) <- dict, k == key] of
+        []  -> Nothing
+        [v] -> Just v
+        _   -> error "corrupt dict! multiple keys found."

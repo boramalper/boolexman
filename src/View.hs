@@ -16,6 +16,7 @@ THIS SOFTWARE.
 module View where
 
 import Data.List.Split
+import Debug.Trace
 import System.IO
 import System.Process
 
@@ -72,11 +73,6 @@ viewTabulate expr (headers, rows) =
                                   in  replicate leftPadLen ' ' ++ str ++ replicate rightPadLen ' '
             | otherwise = error "str is longer than len!"
 
-{-
-TODO BUG
-9> resolve (if A iff !B then C implies D xor !E else F and !G or not !D and E)
-boolexman: src/View.hs:95:55-108: Irrefutable pattern failed for pattern [(_, status)]
--}
 viewResolution :: Resolution -> String
 viewResolution res =    bold "Resolution:"
                      ++ "\n"
@@ -90,18 +86,16 @@ viewResolution res =    bold "Resolution:"
                                  ++ prettifyList (map (pClause dict) step)
 
         indent :: Int -> String -> String
-        indent i s = (foldr1 (\l r -> l ++ '\n' : r) $ map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n"
+        indent i s = foldr1 (\l r -> l ++ '\n' : r) (map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n"
 
         -- TODO
         --    5> resolve (A ^ B ^ C ? D : A v B)
         -- boolexman: src/View.hs:42:55-108: Irrefutable pattern failed for pattern [(_, status)]
         pClause :: [(Clause, ClauseStatus)] -> Clause -> String
-        pClause dict clause
-            | any (\(c, _) -> c == clause) dict = let [(_, status)] = [(c, s) | (c, s) <- dict, c == clause]
-                                                  in  case status of
-                                                      ResolvedBy resolvent -> show resolvent ++ show clause
-                                                      Striken -> "~" ++ strike (show clause) ++ "~"
-            | otherwise = show clause
+        pClause dict clause = case dict <!?> clause of
+            Just (ResolvedBy resolvent) -> show resolvent ++ show clause
+            Just Striken -> "~" ++ strike (show clause) ++ "~"
+            Nothing -> show clause
 
 showSET :: SET -> String
 showSET = recurse 0
@@ -135,7 +129,7 @@ viewXNF sixthStep sixthStep' ts =
     bold "1. Transform all if-then-else (ITE) expressions:\n"
  ++ (
         if   null $ fst $ ts !! 0
-        then "  No ITE expression is found!\n"
+        then "  No ITE expressions are found!\n"
         else prettifyList (map showPair $ fst (ts !! 0))
  )
  ++ "\n" ++ bold "After all ITE expressions are transformed:\n  " ++ show (snd $ ts !! 0)
@@ -143,7 +137,7 @@ viewXNF sixthStep sixthStep' ts =
  ++ bold "2. Transform all if-and-only-if (IFF) expressions:\n"
  ++ (
         if   null $ fst $ ts !! 1
-        then "  No IFF expression is found!\n"
+        then "  No IFF expressions are found!\n"
         else prettifyList (map showPair $ fst (ts !! 1))
  )
  ++ "\n" ++ bold "After all IFF expressions are transformed:\n  " ++ show (snd $ ts !! 1)
@@ -151,7 +145,7 @@ viewXNF sixthStep sixthStep' ts =
  ++ bold "3. Tranform all implications:\n"
  ++ (
         if   null $ fst $ ts !! 2
-        then "  No implication is found!\n"
+        then "  No implications are found!\n"
         else prettifyList (map showPair $ fst (ts !! 2))
  )
  ++ "\n" ++ bold "After all implications are transformed:\n  " ++ show (snd $ ts !! 2)
@@ -159,7 +153,7 @@ viewXNF sixthStep sixthStep' ts =
  ++ bold "4. Tranform all exclusive-or (XOR) expressions:\n"
  ++ (
         if   null $ fst $ ts !! 3
-        then "  No XOR expression is found!\n"
+        then "  No XOR expressions are found!\n"
         else prettifyList (map showPair $ fst (ts !! 3))
  )
  ++ "\n" ++ bold "After all XOR expressions are transformed:\n  " ++ show (snd $ ts !! 3)
@@ -167,7 +161,7 @@ viewXNF sixthStep sixthStep' ts =
  ++ bold "5. Distribute NOTs:\n"
  ++ (
         if   null $ fst $ ts !! 4
-        then "  No distributable NOT is found!\n"
+        then "  No distributable NOTs are found!\n"
         else prettifyList (map showPair $ fst (ts !! 4))
  )
  ++ "\n" ++ bold "After all NOTs are distributed:\n  " ++ show (snd $ ts !! 4)
@@ -186,13 +180,13 @@ viewCNF :: Expr -> [([(Expr, Expr)], Expr)] -> String
 viewCNF expr ts =
                printHeader (bold "toCNF" ++ " " ++ underline (show expr))
     ++ "\n"
-    ++ "\n" ++ viewXNF "Distribute ORs over ANDs" "No distributable OR statement is found!" ts
+    ++ "\n" ++ viewXNF "Distribute ORs over ANDs" "No distributable OR statements are found!" ts
 
 viewDNF :: Expr -> [([(Expr, Expr)], Expr)] -> String
 viewDNF expr ts =
                printHeader (bold "toDNF" ++ " " ++ underline (show expr))
     ++ "\n"
-    ++ "\n" ++ viewXNF "Distribute ANDs over ORs" "No distributable AND statement is found!" ts
+    ++ "\n" ++ viewXNF "Distribute ANDs over ORs" "No distributable AND statements are found!" ts
 
 viewEval :: [Expr] -> [Expr] -> Expr -> EvalResult -> String
 viewEval ts fs expr r =
