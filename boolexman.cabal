@@ -67,6 +67,9 @@ executable boolexman
                      , regex-tdfa >= 1.2.2 && == 1.*
                      , split >= 0.2.3.1 && == 0.2.*
                      , process >= 1.4.3.0 && == 1.4.*
+--                     , unix >= 2.7.1.0 && == 2.7.*
+                     , turtle >= 1.5.3  && == 1.5.*
+                     , text >= 1.2.2.2 && == 1.2.*
 
   -- Directories containing source files.
   hs-source-dirs:      src

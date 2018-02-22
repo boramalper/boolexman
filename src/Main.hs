@@ -39,7 +39,7 @@ loop no = do
         Nothing -> putStrLn "\nEOF received, quitting..."
         Just line -> unless (line == "quit") $ do
             addHistory line
-            viewLess2 $ process line
+            viewLess3 $ process line
             loop $ no + 1
     where
         formatNo :: Int -> Integer -> String
@@ -91,18 +91,18 @@ process s =
             Right expr -> viewCNF expr $ toCNF expr
         "resolve" -> case parseSoleExpression argument of
             Left  err -> err
-            Right expr -> viewResolution $ resolve expr
-        "entail" -> -- ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
+            Right expr -> viewResolution expr $ resolve expr
+        "entail" ->
             let (_, _, _, expressions) = argument =~ (expressionCRE ++ " " ++ expressionCRE)
                                          :: (String, String, String, [String])
             in  if   length expressions /= 2
                 then    "Parsing Error: could not parse the argument! (make"
                      ++ "  sure you enclose the expressions in parantheses)"
                 else case parseAll expressions of
-                    Left err  -> "Parsing Error: " ++ err
-                    Right exp -> show $ entail (exp !! 0) (exp !! 1)
+                    Left err    -> "Parsing Error: " ++ err
+                    Right [cond, expr] -> viewEntailment cond expr $ entail cond expr
         command ->
-            "Error: Unknown command: `" ++ command ++ "`"
+            "Error: Unknown command: " ++ command ++ "  "
     where
         parseSoleExpression :: String -> Either String Expr
         parseSoleExpression str =

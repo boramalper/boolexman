@@ -16,6 +16,7 @@ THIS SOFTWARE.
 module Engine.Commands where
 
 import Data.List (nub, delete, sort, sortBy, (\\))
+import Data.Maybe (isJust)
 import Debug.Trace
 import Test.QuickCheck
 
@@ -66,14 +67,8 @@ prop_tabulate expr = let (headers, rows) = tabulate expr
                                  then allSymbolsFirst xs
                                  else not $ any isSymbol xs
 
-{- toCNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
-first element is (another list of tuples whose first element is the
-subexpression before the predefined transformation and whose second element is
-the self-same subexpression after the transformation), and whose second element
-is resultant expression E' that is equivalent to E.
--}
-toCNF :: Expr -> [([(Expr, Expr)], Expr)]
-toCNF expr =
+toXNF :: Expr -> [([(Expr, Expr)], Expr)]
+toXNF expr =
     let
     -- 0. Eliminate all if-then-else (ITE) subexpressions
         (eITE, pITE) = (nub $ eliminationsITE        expr,  normalise $ eliminateAllITE    expr)
@@ -84,11 +79,23 @@ toCNF expr =
     -- 3. Eliminate all exclusive-org XOR subexpressions
         (eDNF, pDNF) = (nub $ eliminationsXORcnf     pIMP,  normalise $ eliminateAllXORcnf pIMP)
     -- 4. Distribute NOTs
-        (dNT2, pNT2) = (nub $ distributionsNOT       pDNF,  normalise $ distributeAllNOT   pDNF)
-    -- 5. Distribute ORs over ANDs
-        (dOAN, pOAN) = (nub $ distributionsOR     pNT2,  normalise $ distributeAllOR    pNT2)
+        (dNOT, pNOT) = (nub $ distributionsNOT       pDNF,  normalise $ distributeAllNOT   pDNF)
     in
-        [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (eDNF, pDNF), (dNT2, pNT2), (dOAN, pOAN)]
+        [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (eDNF, pDNF), (dNOT, pNOT)]
+
+{- toCNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
+first element is (another list of tuples whose first element is the
+subexpression before the predefined transformation and whose second element is
+the self-same subexpression after the transformation), and whose second element
+is resultant expression E' that is equivalent to E.
+-}
+toCNF :: Expr -> [([(Expr, Expr)], Expr)]
+toCNF expr =
+    let xnf          = toXNF expr
+        (dNOT, pNOT) = last xnf
+    in  xnf
+        -- 5. Distribute ORs over ANDs
+        ++ [(nub $ distributionsOR pNOT, normalise $ distributeAllOR pNOT)]
 
 prop_toCNF :: Expr -> Bool
 prop_toCNF expr = let result = snd $ last $ toCNF expr
@@ -104,21 +111,11 @@ is resultant expression E' that is equivalent to E.
 -}
 toDNF :: Expr -> [([(Expr, Expr)], Expr)]
 toDNF expr =
-    let
-    -- 0. Eliminate all if-then-else (ITE) subexpressions
-        (eITE, pITE) = (nub $ eliminationsITE    expr,  normalise $ eliminateAllITE    expr)
-    -- 1. Eliminate all if-and-only-if (IFF) subexpressions
-        (eIFF, pIFF) = (nub $ eliminationsIFF    pITE,  normalise $ eliminateAllIFF    pITE)
-    -- 2. Eliminate all implies (IMP) subexpressions
-        (eIMP, pIMP) = (nub $ eliminationsIMP    pIFF,  normalise $ eliminateAllIMP    pIFF)
-    -- 3. Eliminate all exclusive-or (XOR) subexpressions
-        (eDNF, pDNF) = (nub $ eliminationsXORcnf pIMP,  normalise $ eliminateAllXORcnf pIMP)
-    -- 4. Distribute NOTs
-        (dNOT, pNOT) = (nub $ distributionsNOT   pDNF,  normalise $ distributeAllNOT   pDNF)
-    -- 5. Distribute ANDs over ORs
-        (dAOR, pAOR) = (nub $ distributionsAND pNOT,  normalise $ distributeAllAND pNOT)
-    in
-        [(eITE, pITE), (eIFF, pIFF), (eIMP, pIMP), (eDNF, pDNF), (dNOT, pNOT), (dAOR, pAOR)]
+    let xnf          = toXNF expr
+        (dNOT, pNOT) = last xnf
+    in  xnf
+        -- 5. Distribute ORs over ANDs
+        ++ [(nub $ distributionsAND pNOT, normalise $ distributeAllAND pNOT)]
 
 prop_toDNF :: Expr -> Bool
 prop_toDNF expr = let result = snd $ last $ toDNF expr
@@ -251,19 +248,15 @@ resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
     where
         recurse :: [Clause] -> (ResolutionSteps, ClauseStatuses)
         recurse clauses
-            | just (findSuitableResolvent clauses) =
+            | isJust (findSuitableResolvent clauses) =
                 let (Just resolvent)  = findSuitableResolvent clauses
                     usedClauses       = filter (\clause -> resolvent `elem` clause || Enot resolvent `elem` clause) clauses
-                    newClauses        = calcNewClauses resolvent clauses
+                    newClauses        = nub $ calcNewClauses resolvent clauses
                     strikenClauses    = filter shouldStrike newClauses
                     dict              = map (\c -> (c, ResolvedBy resolvent)) usedClauses <++> map (\c -> (c, Striken)) strikenClauses
                     (nextRL, nextCD) = recurse $ (clauses \\ usedClauses) ++ (newClauses \\ strikenClauses)
                 in  ((resolvent, newClauses) : nextRL, dict <++> nextCD)
            | otherwise = ([], [])
-
-        just :: Maybe a -> Bool
-        just (Just _) = True
-        just Nothing  = False
 
         calcNewClauses :: Resolvent -> [Clause] -> [Clause]
         calcNewClauses resolvent clauses = let positiveClauses = filter (\c ->      resolvent `elem` c) clauses

@@ -13,12 +13,16 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
+{-# LANGUAGE OverloadedStrings #-}
 module View where
 
 import Data.List.Split
+import Data.Text (pack)
 import Debug.Trace
 import System.IO
 import System.Process
+
+import qualified Turtle
 
 import DataTypes
 
@@ -34,8 +38,10 @@ printHeader str = str ++ "\n" ++ replicate (visualLength str) '━'
         countIn :: Eq a => a -> [a] -> Int
         countIn t = length . filter (== t)
 
-viewEntailment :: EntailmentResult -> String
-viewEntailment res = undefined
+viewEntailment :: Expr -> Expr -> EntailmentResult -> String
+viewEntailment cond expr res =
+       printHeader (bold "entail" ++ " " ++ underline (show cond) ++ " " ++ underline (show expr))
+    ++ "\n" ++ show res
 
 viewTabulate :: Expr -> ([Expr], [[Bool]]) -> String
 viewTabulate expr (headers, rows) =
@@ -73,26 +79,24 @@ viewTabulate expr (headers, rows) =
                                   in  replicate leftPadLen ' ' ++ str ++ replicate rightPadLen ' '
             | otherwise = error "str is longer than len!"
 
-viewResolution :: Resolution -> String
-viewResolution res =    bold "Resolution:"
-                     ++ "\n"
-                     ++ indent 4 (prettifyList (map (pClause $ clauseStatuses res) (initialStep res)))
-                     ++ "\n"
-                     ++ prettifyList (map (uncurry $ ff $ clauseStatuses res) $ resolutionSteps res)
-                     ++ "\n"
+viewResolution :: Expr -> Resolution -> String
+viewResolution expr res =
+       printHeader (bold "resolve" ++ " " ++ underline (show expr))
+    ++ "\n"
+    ++ "\n" ++ indent 4 (prettifyList (map (printClause $ clauseStatuses res) (initialStep res)))
+    ++ "\n" ++ prettifyList (map (uncurry $ printResolutionStep $ clauseStatuses res) $ resolutionSteps res)
     where
-        ff :: [(Clause, ClauseStatus)] -> Resolvent -> Step -> String
-        ff dict resolvent step = bold ("──┤ " ++ show resolvent ++ " ├────────────\n")
-                                 ++ prettifyList (map (pClause dict) step)
+        printResolutionStep :: [(Clause, ClauseStatus)] -> Resolvent -> Step -> String
+        printResolutionStep dict resolvent step =
+               "──┤ " ++ bold (show resolvent) ++ " ├────────────"
+            ++ "\n"
+            ++ prettifyList (map (printClause dict) step)
 
         indent :: Int -> String -> String
         indent i s = foldr1 (\l r -> l ++ '\n' : r) (map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n"
 
-        -- TODO
-        --    5> resolve (A ^ B ^ C ? D : A v B)
-        -- boolexman: src/View.hs:42:55-108: Irrefutable pattern failed for pattern [(_, status)]
-        pClause :: [(Clause, ClauseStatus)] -> Clause -> String
-        pClause dict clause = case dict <!?> clause of
+        printClause :: [(Clause, ClauseStatus)] -> Clause -> String
+        printClause dict clause = case dict <!?> clause of
             Just (ResolvedBy resolvent) -> show resolvent ++ show clause
             Just Striken -> "~" ++ strike (show clause) ++ "~"
             Nothing -> show clause
@@ -251,6 +255,43 @@ viewLess3 str = do
                                                                 }
     hPutStr lessStdin str
     hFlush lessStdin
+
+viewLess4 :: String -> IO()
+viewLess4 str = do
+    x <- Turtle.proc "less" ["-R~KNS"] (Turtle.Shell (Turtle.textToLines (pack str)))
+    case x of
+        Turtle.ExitSuccess   -> return ()
+        Turtle.ExitFailure _ -> error "failll"
+
+--
+
+{-
+less :: IO a -> IO a
+less a = do
+  -- make a copy of stdout
+  stdout_copy <- dup stdOutput
+
+  -- launch less that reads from a pipe and writes to the terminal
+  (Just pipe_handle, Nothing, Nothing, pid)
+    <- createProcess (proc "less" []) { std_in = CreatePipe }
+
+  -- close stdout (remember, we still have a copy of it as stdout_copy)
+  closeFd stdOutput
+
+  -- obtain an fd for our end of the pipe
+  pipe_fd <- handleToFd pipe_handle
+
+  -- make the pipe our new stdout
+  dupTo pipe_fd stdOutput
+
+  -- close pipe_fd, so that less can observe the EOF
+  closeFd pipe_fd
+
+  -- run the computation, and restore the normal output afterwards
+  a `finally` closeFd stdOutput `finally` waitForProcess pid `finally` do
+    dupTo stdout_copy stdOutput
+    closeFd stdout_copy
+-}
 
 prettifyList :: [String] -> String
 prettifyList = concatMap (\x -> "  " ++ bold "•" ++ " " ++ foldr1 (\l r -> l ++ '\n' : replicate 4 ' ' ++ r) (splitOn "\n" x) ++ "\n")
