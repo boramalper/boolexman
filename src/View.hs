@@ -18,11 +18,7 @@ module View where
 
 import Data.List.Split
 import Data.Text (pack)
-import Debug.Trace
-import System.IO
 import System.Process
-
-import qualified Turtle
 
 import DataTypes
 
@@ -91,9 +87,6 @@ viewResolution expr res =
                "──┤ " ++ bold (show resolvent) ++ " ├────────────"
             ++ "\n"
             ++ prettifyList (map (printClause dict) step)
-
-        indent :: Int -> String -> String
-        indent i s = foldr1 (\l r -> l ++ '\n' : r) (map (replicate i ' ' ++) (init $ splitOn "\n" s)) ++ "\n"
 
         printClause :: [(Clause, ClauseStatus)] -> Clause -> String
         printClause dict clause = case dict <!?> clause of
@@ -236,65 +229,27 @@ viewEval ts fs expr r =
 showPair :: (Expr, Expr) -> String
 showPair (orig, new) = show orig ++ "\nis transformed into\n" ++ show new
 
-viewLess2 :: String -> IO ()
-viewLess2 str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KNS "
+viewLess :: String -> IO ()
+viewLess str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KNS "
     where
         escape :: String -> String
         escape s = concat
             [
                 case c of
                     '\\' -> "\\\\"
-                    '"' -> "\\\""
+                    '`'  -> "\\`"
+                    '"'  -> "\\\""
                     _ -> [c]
             | c <- s]
 
-viewLess3 :: String -> IO()
-viewLess3 str = do
-    (Just lessStdin, _, _, _) <- createProcess (proc "less" []) { std_in  = CreatePipe
-                                                                , std_out = Inherit
-                                                                }
-    hPutStr lessStdin str
-    hFlush lessStdin
-
-viewLess4 :: String -> IO()
-viewLess4 str = do
-    x <- Turtle.proc "less" ["-R~KNS"] (Turtle.Shell (Turtle.textToLines (pack str)))
-    case x of
-        Turtle.ExitSuccess   -> return ()
-        Turtle.ExitFailure _ -> error "failll"
-
---
-
-{-
-less :: IO a -> IO a
-less a = do
-  -- make a copy of stdout
-  stdout_copy <- dup stdOutput
-
-  -- launch less that reads from a pipe and writes to the terminal
-  (Just pipe_handle, Nothing, Nothing, pid)
-    <- createProcess (proc "less" []) { std_in = CreatePipe }
-
-  -- close stdout (remember, we still have a copy of it as stdout_copy)
-  closeFd stdOutput
-
-  -- obtain an fd for our end of the pipe
-  pipe_fd <- handleToFd pipe_handle
-
-  -- make the pipe our new stdout
-  dupTo pipe_fd stdOutput
-
-  -- close pipe_fd, so that less can observe the EOF
-  closeFd pipe_fd
-
-  -- run the computation, and restore the normal output afterwards
-  a `finally` closeFd stdOutput `finally` waitForProcess pid `finally` do
-    dupTo stdout_copy stdOutput
-    closeFd stdout_copy
--}
+printError :: String -> IO ()
+printError = putStrLn . indent 6
 
 prettifyList :: [String] -> String
 prettifyList = concatMap (\x -> "  " ++ bold "•" ++ " " ++ foldr1 (\l r -> l ++ '\n' : replicate 4 ' ' ++ r) (splitOn "\n" x) ++ "\n")
+
+indent :: Int -> String -> String
+indent i s = foldr1 (\l r -> l ++ "\n" ++ r) $ map (replicate i ' ' ++) $ splitOn "\n" s
 
 bold :: String -> String
 bold s = "\x1b[1m" ++ s ++ "\x1b[0m"

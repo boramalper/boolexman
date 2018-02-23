@@ -16,6 +16,7 @@ THIS SOFTWARE.
 module Main where
 
 import Control.Monad
+import Data.Char (toLower)
 import Data.List.Split (splitOn)
 import System.IO
 import System.Console.Readline
@@ -37,22 +38,67 @@ loop no = do
     line <- readline $ '\n' : formatNo 4 no ++ "> "
     case line of
         Nothing -> putStrLn "\nEOF received, quitting..."
-        Just line -> unless (line == "quit") $ do
-            addHistory line
-            viewLess3 $ process line
-            loop $ no + 1
+        Just line -> let line' = normaliseString line
+                     in  unless (map toLower line' == "quit") $ do
+                         addHistory line'
+                         case process line' of
+                             Left  err -> printError err
+                             Right out -> viewLess out
+                         loop $ no + 1
     where
         formatNo :: Int -> Integer -> String
         formatNo minLength no =
             let noStr = show no
             in replicate (minLength - length noStr) ' ' ++ noStr
 
-process :: String -> String
-process s =
-    let s'       = normaliseString s
-        command  = head $ splitOn " " s'
-        argument = drop (length command + 1) s'  -- +1 for the space character
+process :: String -> Either String String
+process line =
+    let command  = map toLower $ head $ splitOn " " line
+        argument = drop (length command + 1) line  -- +1 for the space character
+    in case command of
+        "tabulate" -> case parseSoleExpression argument of
+            Left err   -> Left $ err
+            Right expr -> Right $ viewTabulate expr $ tabulate expr
+        "subexpressions" -> case parseSoleExpression argument of
+            Left  err  -> Left $ err
+            Right expr -> Right $ viewSubexpressions expr $ subexpressions expr
+        "symbols" -> case parseSoleExpression argument of
+            Left  err -> Left $ err
+            Right expr -> Right $ viewSymbols expr $ symbols expr
 
+        -- TODO: This looks really ugly, isn't there a neater way?
+        "eval" -> -- eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
+            let (_, _, _, matches) = argument =~ (symbolListCRE ++ ' ' : symbolListCRE ++ ' ' : expressionCRE) :: (String, String, String, [String])
+            in  if   length matches /= 3
+                then Left $ "Parsing Error: supply two lists of symbols, and an expression!"
+                else case parseCsSymbols $ matches !! 0 of
+                    Left err          -> Left $ "Parsing Error: " ++ err ++ "(in the first list)"
+                    Right trueSymbols -> case parseCsSymbols $ matches !! 1 of
+                        Left err           -> Left $ "Parsing Error: " ++ err ++ "(in the second list)"
+                        Right falseSymbols -> case parse $ matches !! 2 of
+                            Left err  -> Left $ "Parsing Error: " ++ err ++ "(in the expression)"
+                            Right expr -> Right $ viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
+        "todnf" -> case parseSoleExpression argument of
+            Left  err -> Left $ err
+            Right expr -> Right $ viewDNF expr $ toDNF expr
+        "tocnf" -> case parseSoleExpression argument of
+            Left  err -> Left $ err
+            Right expr -> Right $ viewCNF expr $ toCNF expr
+        "resolve" -> case parseSoleExpression argument of
+            Left  err -> Left $ err
+            Right expr -> Right $ viewResolution expr $ resolve expr
+        "entail" ->
+            let (_, _, _, expressions) = argument =~ (expressionCRE ++ " " ++ expressionCRE)
+                                         :: (String, String, String, [String])
+            in  if   length expressions /= 2
+                then    Left $ "Parsing Error: could not parse the argument! (make"
+                     ++ "  sure you enclose the expressions in parantheses)"
+                else case parseAll expressions of
+                    Left err    -> Left $ "Parsing Error: " ++ err
+                    Right [cond, expr] -> Right $ viewEntailment cond expr $ entail cond expr
+        command ->
+            Left $ "Error: Unknown command: " ++ command ++ "  "
+    where
         -- CAPTURES the expression enclosed in parantheses
         expressionCRE = "\\((.*)\\)"
         symbolRE     = "[A-Z][a-zA-Z0-9]*"
@@ -60,53 +106,10 @@ process s =
         -- parantheses
         -- symbolListCRE = "\\[(" ++ symbolRE ++ "(?: ?, ?" ++ symbolRE ++ ")*)\\]"
         symbolListCRE = "\\[(.*)\\]"
-    in case command of
-        "tabulate" -> case parseSoleExpression argument of
-            Left err   -> err
-            Right expr -> viewTabulate expr $ tabulate expr
-        "subexpressions" -> case parseSoleExpression argument of
-            Left  err  -> err
-            Right expr -> viewSubexpressions expr $ subexpressions expr
-        "symbols" -> case parseSoleExpression argument of
-            Left  err -> err
-            Right expr -> viewSymbols expr $ symbols expr
 
-        -- TODO: This looks really ugly, isn't there a neater way?
-        "eval" -> -- eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
-            let (_, _, _, matches) = argument =~ (symbolListCRE ++ ' ' : symbolListCRE ++ ' ' : expressionCRE) :: (String, String, String, [String])
-            in  if   length matches /= 3
-                then "Parsing Error: supply two lists of symbols, and an expression!"
-                else case parseCsSymbols $ matches !! 0 of
-                    Left err          -> "Parsing Error: " ++ err ++ "(in the first list)"
-                    Right trueSymbols -> case parseCsSymbols $ matches !! 1 of
-                        Left err           -> "Parsing Error: " ++ err ++ "(in the second list)"
-                        Right falseSymbols -> case parse $ matches !! 2 of
-                            Left err  -> "Parsing Error: " ++ err ++ "(in the expression)"
-                            Right expr -> viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
-        "toDNF" -> case parseSoleExpression argument of
-            Left  err -> err
-            Right expr -> viewDNF expr $ toDNF expr
-        "toCNF" -> case parseSoleExpression argument of
-            Left  err -> err
-            Right expr -> viewCNF expr $ toCNF expr
-        "resolve" -> case parseSoleExpression argument of
-            Left  err -> err
-            Right expr -> viewResolution expr $ resolve expr
-        "entail" ->
-            let (_, _, _, expressions) = argument =~ (expressionCRE ++ " " ++ expressionCRE)
-                                         :: (String, String, String, [String])
-            in  if   length expressions /= 2
-                then    "Parsing Error: could not parse the argument! (make"
-                     ++ "  sure you enclose the expressions in parantheses)"
-                else case parseAll expressions of
-                    Left err    -> "Parsing Error: " ++ err
-                    Right [cond, expr] -> viewEntailment cond expr $ entail cond expr
-        command ->
-            "Error: Unknown command: " ++ command ++ "  "
-    where
         parseSoleExpression :: String -> Either String Expr
         parseSoleExpression str =
-            let (a, expression, b) = str =~ "\\((.*)\\)" :: (String, String, String)
+            let (a, expression, b) = str =~ expressionCRE :: (String, String, String)
             in  if   null expression || not (null a) || not (null b)
                 then Left $    "Parsing Error: could not parse the argument! (make"
                             ++ "  sure you enclose the expression in parantheses)"
