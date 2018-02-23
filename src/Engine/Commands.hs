@@ -162,22 +162,25 @@ prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toE
 --   entail (A v B v C ^ D) (A ^ B ^ C => (E => (D => (Z => E))))
 
 entail :: Expr -> Expr -> EntailmentResult
-entail cond expr = let condPostITEelimination = eliminateAllITE    cond
-                       condPostIFFelimination = eliminateAllIFF    condPostITEelimination
-                       condPostXORelimination = eliminateAllXORcnf condPostIFFelimination
-                       exprPostITEelimination = eliminateAllITE    expr
-                       exprPostIFFelimination = eliminateAllIFF    exprPostITEelimination
-                       exprPostXORelimination = eliminateAllXORcnf exprPostIFFelimination
-                   in  EntailmentResult { condITEeliminations    = eliminationsITE    cond
-                                        , condIFFeliminations    = eliminationsIFF    condPostITEelimination
-                                        , condXOReliminations    = eliminationsXORcnf condPostIFFelimination
-                                        , exprITEeliminations    = eliminationsITE    expr
-                                        , exprIFFeliminations    = eliminationsIFF    exprPostITEelimination
-                                        , exprXOReliminations    = eliminationsXORcnf exprPostIFFelimination
-                                        , condPostXORelimination = condPostXORelimination
-                                        , exprPostITEelimination = exprPostXORelimination
-                                        , entailment             = recurse [condPostXORelimination] [exprPostXORelimination]
-                       }
+entail cond expr
+    | all (not . (`subexprOf` cond)) [Etrue, Efalse] && all (not . (`subexprOf` expr)) [Etrue, Efalse] =
+    let condPostITEelimination = eliminateAllITE    cond
+        condPostIFFelimination = eliminateAllIFF    condPostITEelimination
+        condPostXORelimination = eliminateAllXORcnf condPostIFFelimination
+        exprPostITEelimination = eliminateAllITE    expr
+        exprPostIFFelimination = eliminateAllIFF    exprPostITEelimination
+        exprPostXORelimination = eliminateAllXORcnf exprPostIFFelimination
+    in  EntailmentResult { condITEeliminations    = eliminationsITE    cond
+                         , condIFFeliminations    = eliminationsIFF    condPostITEelimination
+                         , condXOReliminations    = eliminationsXORcnf condPostIFFelimination
+                         , exprITEeliminations    = eliminationsITE    expr
+                         , exprIFFeliminations    = eliminationsIFF    exprPostITEelimination
+                         , exprXOReliminations    = eliminationsXORcnf exprPostIFFelimination
+                         , condPostXORelimination = condPostXORelimination
+                         , exprPostITEelimination = exprPostXORelimination
+                         , entailment             = recurse [condPostXORelimination] [exprPostXORelimination]
+        }
+    | otherwise = error "True and/or False has no place in an entailment!"
     where
         takeOne :: Show a => (a -> Bool) -> [a] -> a
         takeOne f l = head [x | x <- l, f x]

@@ -95,7 +95,11 @@ process line =
                      ++ "  sure you enclose the expressions in parantheses)"
                 else case parseAll expressions of
                     Left err    -> Left $ "Parsing Error: " ++ err
-                    Right [cond, expr] -> Right $ viewEntailment cond expr $ entail cond expr
+                    Right [cond, expr] ->
+                        if all (not . (`subexprOf` cond)) [Etrue, Efalse] && all (not . (`subexprOf` expr)) [Etrue, Efalse]
+                        then Right $ viewEntailment cond expr $ entail cond expr
+                        else Left $ "Semantic Error: True and/or False cannot appear in neither"
+                             ++ " condition nor expression of an entailment!"
         command ->
             Left $ "Error: Unknown command: " ++ command ++ "  "
     where

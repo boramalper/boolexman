@@ -77,6 +77,21 @@ isTrueFalse Etrue  = True
 isTrueFalse Efalse = True
 isTrueFalse _      = False
 
+subexprOf :: Expr -> Expr -> Bool
+subexprOf a b =
+    (a == b) ||
+    case b of
+        Efalse               -> False
+        Etrue                -> False
+        (Esym s)             -> False
+        (Enot subexpr)       -> a `subexprOf` subexpr
+        (Eimp cond cons)     -> a `subexprOf` cond || a `subexprOf` cons
+        (Eite cond cons alt) -> a `subexprOf` cond || a `subexprOf` cons || a `subexprOf` alt
+        (Eand subexprs)      -> any (a `subexprOf`) subexprs
+        (Eor  subexprs)      -> any (a `subexprOf`) subexprs
+        (Exor subexprs)      -> any (a `subexprOf`) subexprs
+        (Eiff subexprs)      -> any (a `subexprOf`) subexprs
+
 -----------------------------------------
 -- SEQUENT CALCULUS
 
