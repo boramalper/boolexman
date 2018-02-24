@@ -18,7 +18,6 @@ module DataTypes where
 import Control.Monad
 import Data.List
 import Data.List.Split
-import Debug.Trace
 import Test.QuickCheck
 import Test.QuickCheck.Arbitrary
 
@@ -118,84 +117,20 @@ data Entailment = I Line
                 | Rand Line [Entailment]
                 deriving (Eq)
 
--- mp4man style, bottom up.
-instance Show Entailment where
-    show (I line)               = showEntailment "I"   line []
-    show (F line)               = showEntailment "F"   line []
-    show (Land line entailment) = showEntailment "^L"  line [entailment]
-    show (Ror line entailment)  = showEntailment "vR"  line [entailment]
-    show (Rimp line entailment) = showEntailment "=>R" line [entailment]
-    show (Lnot line entailment) = showEntailment "!L"  line [entailment]
-    show (Rnot line entailment) = showEntailment "!R"  line [entailment]
-    show (Limp line ent1 ent2)  = showEntailment "=>L" line [ent1, ent2]
-    show (Lor   line ents)      = showEntailment "vL"  line ents
-    show (Rand  line ents)      = showEntailment "^R"  line ents
-
-showEntailment :: String -> Line -> [Entailment] -> String
-showEntailment rule line entailments =
-   let line'        = show line
-       entailments' = boxAppend "   " $ map show entailments
-   in     entailments'
-       ++ "\n" ++ replicate (max (width entailments') (length line')) '─' ++ " (" ++ rule ++ ")"
-       ++ "\n" ++ center (max (width entailments') (length line')) line'
-
-center :: Int -> String -> String
-center width s
-    | length s <= width = replicate ((width - length s) `div` 2) ' ' ++ s
-    | otherwise = error "string is longer than the width"
-
-{-
-TODO: refactor to increase readability.
-this is basically a primitive layout engine, oh god.
-
-EXAMPLE:
-  > putStrLn $ boxAppend " | " ["AAA\nBBBBBB\nCCCCCC", "ZZZZZ\nQQ"]
-  AAA    |
-  BBBBBB | ZZZZZ
-  CCCCCC | QQ
--}
-boxAppend :: String -> [String] -> String
-boxAppend _ [] = ""
-boxAppend padding strings =
-    let
-        listOfLines = map (splitOn "\n") strings :: [[String]]
-        listOfFixedWidthLines = map (\lines' -> map (fixedWidth (longest lines')) lines') listOfLines :: [[String]]
-        listOfSameHeightFixedWidthLines = map (fixedHeight (longest listOfFixedWidthLines)) listOfFixedWidthLines :: [[String]]
-    in
-        foldr1 (\a b -> a ++ "\n" ++ b) $ map (\i -> append $ map (\x -> x !! i) listOfSameHeightFixedWidthLines) [0..length (head listOfSameHeightFixedWidthLines) - 1]
-    where
-        append :: [String] -> String
-        append = foldr1 (\a b -> a ++ padding ++ b)
-
-        longest :: [[a]] -> Int
-        longest = maximum . map length
-
-        fixedHeight :: Int -> [String] -> [String]
-        fixedHeight height strs
-            | length strs <= height = replicate (height - length strs) (replicate (length $ head strs) ' ') ++ strs
-            | otherwise = error "strs is taller than height!"
-
-        fixedWidth :: Int -> String -> String
-        fixedWidth width str
-            | length str <= width = str ++ replicate (width - length str) ' '
-            | otherwise = error "str is longer than width!"
-
-width :: String -> Int
-width = maximum . map length . splitOn "\n"
-
 data EntailmentResult = EntailmentResult { condITEeliminations    :: [(Expr, Expr)]
+                                         , condPostITEelimination :: Expr
                                          , condIFFeliminations    :: [(Expr, Expr)]
+                                         , condPostIFFelimination :: Expr
                                          , condXOReliminations    :: [(Expr, Expr)]
-                                         , exprITEeliminations    :: [(Expr, Expr)]
-                                         , exprIFFeliminations    :: [(Expr, Expr)]
-                                         , exprXOReliminations    :: [(Expr, Expr)]
                                          , condPostXORelimination :: Expr
+                                         , exprITEeliminations    :: [(Expr, Expr)]
                                          , exprPostITEelimination :: Expr
+                                         , exprIFFeliminations    :: [(Expr, Expr)]
+                                         , exprPostIFFelimination :: Expr
+                                         , exprXOReliminations    :: [(Expr, Expr)]
+                                         , exprPostXORelimination :: Expr
                                          , entailment             :: Entailment
                                          }
-
-instance Show EntailmentResult where
-    show res = show $ entailment res
 
 -----------------------------------------
 type Clause = [Expr]

@@ -13,14 +13,88 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-{-# LANGUAGE OverloadedStrings #-}
-module View where
+module View( viewEntailment
+           , viewTabulate
+           , viewResolution
+           , viewSubexpressions
+           , viewSymbols
+           , viewCNF
+           , viewDNF
+           , viewEval
+           , printError
+           , viewLess
+           ) where
 
 import Data.List.Split
-import Data.Text (pack)
 import System.Process
+import Test.QuickCheck
 
 import DataTypes
+
+-- mp4man style, bottom up.
+instance Show Entailment where
+    show (I line)               = showEntailment "I"   line []
+    show (F line)               = showEntailment "F"   line []
+    show (Land line entailment) = showEntailment "^L"  line [entailment]
+    show (Ror line entailment)  = showEntailment "vR"  line [entailment]
+    show (Rimp line entailment) = showEntailment "=>R" line [entailment]
+    show (Lnot line entailment) = showEntailment "!L"  line [entailment]
+    show (Rnot line entailment) = showEntailment "!R"  line [entailment]
+    show (Limp line ent1 ent2)  = showEntailment "=>L" line [ent1, ent2]
+    show (Lor   line ents)      = showEntailment "vL"  line ents
+    show (Rand  line ents)      = showEntailment "^R"  line ents
+
+showEntailment :: String -> Line -> [Entailment] -> String
+showEntailment rule line entailments =
+   let line'        = show line
+       entailments' = boxAppend "   " $ map show entailments
+   in     entailments'
+       ++ "\n" ++ replicate (max (width entailments') (length line')) '─' ++ " (" ++ rule ++ ")"
+       ++ "\n" ++ center (max (width entailments') (length line')) line'
+    where
+        width :: String -> Int
+        width = maximum . map length . splitOn "\n"
+
+center :: Int -> String -> String
+center width s
+    | length s <= width = replicate ((width - length s) `div` 2) ' ' ++ s
+    | otherwise = error "string is longer than the width"
+
+{-
+TODO: refactor to increase readability.
+this is basically a primitive layout engine, oh god.
+
+EXAMPLE:
+  > putStrLn $ boxAppend " | " ["AAA\nBBBBBB\nCCCCCC", "ZZZZZ\nQQ"]
+  AAA    |
+  BBBBBB | ZZZZZ
+  CCCCCC | QQ
+-}
+boxAppend :: String -> [String] -> String
+boxAppend _ [] = ""
+boxAppend padding strings =
+    let
+        listOfLines = map (splitOn "\n") strings :: [[String]]
+        listOfFixedWidthLines = map (\lines' -> map (fixedWidth (longest lines')) lines') listOfLines :: [[String]]
+        listOfSameHeightFixedWidthLines = map (fixedHeight (longest listOfFixedWidthLines)) listOfFixedWidthLines :: [[String]]
+    in
+        foldr1 (\a b -> a ++ "\n" ++ b) $ map (\i -> append $ map (\x -> x !! i) listOfSameHeightFixedWidthLines) [0..length (head listOfSameHeightFixedWidthLines) - 1]
+    where
+        append :: [String] -> String
+        append = foldr1 (\a b -> a ++ padding ++ b)
+
+        longest :: [[a]] -> Int
+        longest = maximum . map length
+
+        fixedHeight :: Int -> [String] -> [String]
+        fixedHeight height strs
+            | length strs <= height = replicate (height - length strs) (replicate (length $ head strs) ' ') ++ strs
+            | otherwise = error "strs is taller than height!"
+
+        fixedWidth :: Int -> String -> String
+        fixedWidth width str
+            | length str <= width = str ++ replicate (width - length str) ' '
+            | otherwise = error "str is longer than width!"
 
 printHeader :: String -> String
 printHeader str = str ++ "\n" ++ replicate (visualLength str) '━'
@@ -37,7 +111,52 @@ printHeader str = str ++ "\n" ++ replicate (visualLength str) '━'
 viewEntailment :: Expr -> Expr -> EntailmentResult -> String
 viewEntailment cond expr res =
        printHeader (bold "entail" ++ " " ++ underline (show cond) ++ " " ++ underline (show expr))
-    ++ "\n" ++ show res
+    ++ "\n"
+    ++ "\n" ++ bold "1(a). Transform all if-then-else (ITE) expressions in the condition:"
+    ++ "\n" ++ (
+        if   null $ condITEeliminations res
+        then "  No ITE expressions are found in the condition!\n"
+        else prettifyList (map showPair $ condITEeliminations res)
+    )
+    ++ "\n" ++ bold "1(b). Transform all if-then-else (ITE) expressions in the consequence:"
+    ++ "\n" ++ (
+        if   null $ exprITEeliminations res
+        then "  No ITE expressions are found in the consequence!\n"
+        else prettifyList (map showPair $ exprITEeliminations res)
+    )
+    ++ "\n" ++ bold "After all ITE expressions in the entailment are transformed:"
+    ++ "\n" ++ "  " ++ show (condPostITEelimination res) ++ " |- " ++ show (exprPostITEelimination res)
+    ++ "\n"
+    ++ "\n" ++ bold "2(a). Transform all if-and-only-if (IFF) expressions in the condition:"
+    ++ "\n" ++ (
+        if   null $ condIFFeliminations res
+        then "  No IFF expressions are found in the condition!\n"
+        else prettifyList (map showPair $ condIFFeliminations res)
+    )
+    ++ "\n" ++ bold "2(b). Transform all if-and-only-if (IFF) expressions in the consequence:"
+    ++ "\n" ++ (
+        if   null $ exprIFFeliminations res
+        then "  No IFF expressions are found in the consequence!\n"
+        else prettifyList (map showPair $ exprIFFeliminations res)
+    )
+    ++ "\n" ++ bold "After all IFF expressions in the entailment are transformed:"
+    ++ "\n" ++ "  " ++ show (condPostIFFelimination res) ++ " |- " ++ show (exprPostIFFelimination res)
+    ++ "\n"
+    ++ "\n" ++ bold "3(a). Transform all exclusive-or (XOR) expressions in the condition:"
+    ++ "\n" ++ (
+        if   null $ condXOReliminations res
+        then "  No XOR expressions are found in the condition!\n"
+        else prettifyList (map showPair $ condXOReliminations res)
+    )
+    ++ "\n" ++ bold "3(b). Transform all exclusive-or (XOR) expressions in the consequence:"
+    ++ "\n" ++ (
+        if   null $ exprXOReliminations res
+        then "  No XOR expressions are found in the consequence!\n"
+        else prettifyList (map showPair $ exprXOReliminations res)
+    )
+    ++ "\n" ++ bold "After all XOR expressions in the entailment are transformed:"
+    ++ "\n" ++ "  " ++ show (condPostXORelimination res) ++ " |- " ++ show (exprPostXORelimination res)
+    ++ "\n" ++ show (entailment res)
 
 viewTabulate :: Expr -> ([Expr], [[Bool]]) -> String
 viewTabulate expr (headers, rows) =
@@ -94,26 +213,25 @@ viewResolution expr res =
             Just Striken -> "~" ++ strike (show clause) ++ "~"
             Nothing -> show clause
 
-showSET :: SET -> String
-showSET = recurse 0
-    where
-        recurse :: Int -> SET -> String
-        recurse level (SET expr []) = show expr
-        recurse level (SET expr sets) =
-            let indent      = (concat $ replicate level "│  ")
-                linePrefix  = indent ++ "├─ "
-                nl          = '\n' : linePrefix
-            in  show expr ++ nl ++ foldr1 (\a b -> a ++ nl ++ b) (map (recurse $ level + 1) sets)
-
 viewSubexpressions :: Expr -> SubexpressionsResult -> String
 viewSubexpressions expr res =
                printHeader (bold "subexpressions" ++ " " ++ underline (show expr))
     ++ "\n"
     ++ "\n" ++ bold "Sub-Expression Tree:"
     ++ "\n" ++ concatMap (\l -> "  " ++ l ++ "\n") (lines $ showSET $ set res)
-    ++ "\n"
     ++ "\n" ++ bold "Sub-Expression List:"
     ++ "\n" ++ prettifyList (map show $ list res)
+    where
+        showSET :: SET -> String
+        showSET = recurse 0
+            where
+                recurse :: Int -> SET -> String
+                recurse level (SET expr []) = show expr
+                recurse level (SET expr sets) =
+                    let indent      = (concat $ replicate level "│  ")
+                        linePrefix  = indent ++ "├─ "
+                        nl          = '\n' : linePrefix
+                    in  show expr ++ nl ++ foldr1 (\a b -> a ++ nl ++ b) (map (recurse $ level + 1) sets)
 
 viewSymbols :: Expr -> [Expr] -> String
 viewSymbols expr ss =

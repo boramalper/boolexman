@@ -17,7 +17,6 @@ module Engine.Commands where
 
 import Data.List (nub, delete, sort, sortBy, (\\))
 import Data.Maybe (isJust)
-import Debug.Trace
 import Test.QuickCheck
 
 import DataTypes
@@ -171,13 +170,17 @@ entail cond expr
         exprPostIFFelimination = eliminateAllIFF    exprPostITEelimination
         exprPostXORelimination = eliminateAllXORcnf exprPostIFFelimination
     in  EntailmentResult { condITEeliminations    = eliminationsITE    cond
+                         , condPostITEelimination = condPostITEelimination
                          , condIFFeliminations    = eliminationsIFF    condPostITEelimination
+                         , condPostIFFelimination = condPostIFFelimination
                          , condXOReliminations    = eliminationsXORcnf condPostIFFelimination
-                         , exprITEeliminations    = eliminationsITE    expr
-                         , exprIFFeliminations    = eliminationsIFF    exprPostITEelimination
-                         , exprXOReliminations    = eliminationsXORcnf exprPostIFFelimination
                          , condPostXORelimination = condPostXORelimination
-                         , exprPostITEelimination = exprPostXORelimination
+                         , exprITEeliminations    = eliminationsITE    expr
+                         , exprPostITEelimination = exprPostITEelimination
+                         , exprIFFeliminations    = eliminationsIFF    exprPostITEelimination
+                         , exprPostIFFelimination = exprPostIFFelimination
+                         , exprXOReliminations    = eliminationsXORcnf exprPostIFFelimination
+                         , exprPostXORelimination = exprPostXORelimination
                          , entailment             = recurse [condPostXORelimination] [exprPostXORelimination]
         }
     | otherwise = error "True and/or False has no place in an entailment!"

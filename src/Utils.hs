@@ -14,7 +14,21 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
 module Utils where
+{-| Module `Utils` consists of general purpose utils. As a thumb of rule:
 
+  1. If you feel that you need to "import" another module of `boolexman`,
+     consider moving the function you are writing under that module, or create a
+     completely new module.
+
+     (This is implies that type signatures of the functions in this module
+     should be as generic as possible.)
+  2. Most of the functions here exist likely due to my ignorance of the standard
+     library, and libraries other people have already developed & tested. You
+     are more than welcome to remove functions from this module, and ideally
+     remove the module `Utils` altogether.
+-}
+
+import Data.List (isPrefixOf)
 import Test.QuickCheck
 
 findOne :: Eq a => [a] -> [a] -> Maybe a
@@ -61,3 +75,19 @@ prop_combinations s (NonNegative k) =
             | n > 0     = product [1..n]
             | n == 0    = 1
             | otherwise = error "please don't make me calculate the factorial of a negative number"
+
+{- Counts the number of times a substring occurs in a string.
+
+EXAMPLE:
+
+  > count "a" "ananas"
+  3
+
+  > count "aa" "aaaa"
+  2  -- in contrast to three!
+-}
+countIn :: Eq a => [a] -> [a] -> Int
+countIn sub str
+    | length str < length sub = 0
+    | sub `isPrefixOf` str = 1 + sub `countIn` drop (length sub) str
+    | otherwise = sub `countIn` tail str

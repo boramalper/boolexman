@@ -316,20 +316,41 @@ yield func expr =
 distributionsAND :: Expr -> [(Expr, Expr)]
 distributionsAND = yield distributeAND
 
+prop_distributionsAND :: Expr -> Bool
+prop_distributionsAND = prop_transformations distributionsAND
+
 distributionsNOT :: Expr -> [(Expr, Expr)]
 distributionsNOT = yield distributeNOT
+
+prop_distributionsNOT :: Expr -> Bool
+prop_distributionsNOT = prop_transformations distributionsNOT
 
 distributionsOR :: Expr -> [(Expr, Expr)]
 distributionsOR = yield distributeOR
 
+prop_distributionsOR :: Expr -> Bool
+prop_distributionsOR = prop_transformations distributionsOR
+
 eliminationsITE :: Expr -> [(Expr, Expr)]
 eliminationsITE = yield eliminateITE
+
+prop_eliminationsITE :: Expr -> Bool
+prop_eliminationsITE = prop_transformations eliminationsITE
 
 eliminationsIFF :: Expr -> [(Expr, Expr)]
 eliminationsIFF = yield eliminateIFF
 
+prop_eliminationsIFF :: Expr -> Bool
+prop_eliminationsIFF = prop_transformations eliminationsIFF
+
 eliminationsIMP :: Expr -> [(Expr, Expr)]
 eliminationsIMP = yield eliminateIMP
 
+prop_eliminationsIMP :: Expr -> Bool
+prop_eliminationsIMP = prop_transformations eliminationsIMP
+
 eliminationsXORcnf :: Expr -> [(Expr, Expr)]
 eliminationsXORcnf = yield eliminateXORcnf
+
+prop_eliminationsXORcnf :: Expr -> Bool
+prop_eliminationsXORcnf = prop_transformations eliminationsXORcnf
