@@ -29,6 +29,8 @@ import Data.List.Split
 import System.Process
 import Test.QuickCheck
 
+import System.Console.Haskeline (InputT, outputStrLn)
+
 import DataTypes
 
 -- mp4man style, bottom up.
@@ -360,8 +362,8 @@ viewLess str = callCommand $ "printf \"" ++ escape str ++ "\"| less -R~KNS "
                     _ -> [c]
             | c <- s]
 
-printError :: String -> IO ()
-printError = putStrLn . indent 6
+printError :: String -> InputT IO ()
+printError = outputStrLn . indent 6
 
 prettifyList :: [String] -> String
 prettifyList = concatMap (\x -> "  " ++ bold "•" ++ " " ++ foldr1 (\l r -> l ++ '\n' : replicate 4 ' ' ++ r) (splitOn "\n" x) ++ "\n")

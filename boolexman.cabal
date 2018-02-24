@@ -61,12 +61,12 @@ executable boolexman
 
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.8 && <4.10
-                     , readline >= 1.0.3.0 && == 1.0.*
                      , regex-pcre-builtin >= 0.94.4.8.8.35 && == 0.94.*
                      , QuickCheck >= 2.9.2 && == 2.*
                      , regex-tdfa >= 1.2.2 && == 1.*
                      , split >= 0.2.3.1 && == 0.2.*
                      , process >= 1.4.3.0 && == 1.4.*
+                     , haskeline >= 0.7.4.2 && == 0.7.*
 
   -- Directories containing source files.
   hs-source-dirs:      src

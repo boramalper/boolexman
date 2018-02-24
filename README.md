@@ -32,6 +32,14 @@ including moving backwards/forwards in the command history to Emacs/vi specific
 key bindings, whose full list can be found on
 [Haskeline Wiki](https://github.com/judah/haskeline/wiki/KeyBindings).
 
+Every command consists of a verb (*i.e.* command verb), and arguments of some
+format, which depends on the verb but is consistent throughout the
+__boolexman__. Whilst any errors are printed on the prompt screen, the output of
+the commands are piped to the `less`, which allows you to scroll in all four
+directions (which is a crucial functionality since some commands produce *large*
+outputs [*i.e.* entailment trees]). You can also save the output of your
+commands to the disk, which are explained below.
+
 ### Command Verbs
 Every command to the __boolexman__ must start with a *command verb*, followed by
 zero or more space-separated arguments. Every command verb starts with a letter,
@@ -214,6 +222,30 @@ case-insensitive!
 
   entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
   ```
+
+### Saving Outputs
+As mentioned previously, __boolexman__ pipes its output through `less` to
+provide a more convenient interface to its users, which in turn, also allows
+them to save the output of the commands they execute.
+
+To save the output of a command:
+
+* Execute your command as usual.
+* Press `s` (small-case!) while viewing the output of your command.
+  * You should see a prompt at the bottom of your terminal `log file: `, if not,
+    check the documentation of your operating system (your version of `less`
+    might not have this functionality).
+  * To cancel, press *BACKSPACE*; the prompt at the bottom of your terminal
+    should turn back into `:` or `(END)`.
+* Enter the name of the file you would like to save into, and press *ENTER*
+  (*RETURN*).
+  * If the file(name) you just entered already exists, you'll see the warning
+    `Warning: "FILENAME" exists; Overwrite, Append or Don't log? ` at the prompt
+    of `less`. Pressing `O` will overwrite, and pressing `D` will cancel the
+    operation. You can also press `A` to append to the file, but that is
+    probably not what you want.
+* Done! The prompt at the bottom of your terminal should turn back into `:` or
+  `(END)`.
 
 ### Syntax
 
