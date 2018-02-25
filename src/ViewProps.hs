@@ -47,7 +47,7 @@ prop_viewEntailment :: Expr -> Expr -> Bool
 prop_viewEntailment cond expr
     | all (not . (`subexprOf` cond)) [Etrue, Efalse] && all (not . (`subexprOf` expr)) [Etrue, Efalse] =
         let res = viewEntailment cond expr $ entail cond expr
-        in  "\n\n" `countIn` res <= 1
+        in  "\n\n" `countIn` res == 9
     | otherwise = discard
 
 prop_viewTabulate :: Expr -> Bool
@@ -73,14 +73,14 @@ prop_viewSymbols expr =
 prop_viewCNF :: Expr -> Bool
 prop_viewCNF expr =
     let res = viewCNF expr $ toCNF expr
-    in  "\n\n" `countIn` res == 1
+    in  "\n\n" `countIn` res == 12
 
 prop_viewDNF :: Expr -> Bool
 prop_viewDNF expr =
     let res = viewDNF expr $ toDNF expr
-    in  "\n\n" `countIn` res == 1
+    in  "\n\n" `countIn` res == 12
 
 prop_viewEval :: [Expr] -> [Expr] -> Expr -> Bool
 prop_viewEval trueSymbols falseSymbols expr =
     let res = viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr
-    in  "\n\n" `countIn` res == 1
+    in  "\n\n" `countIn` res == 7

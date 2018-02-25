@@ -65,9 +65,12 @@ prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toE
 
 prop_entail :: Expr -> Expr -> Bool
 -- for all evaluations that make cond true, expr must be true as well
-prop_entail cond expr = if   doesEntail $ entailment $ entail cond expr
-                        then all (\(ts, fs) -> evalS ts fs $ Eimp cond expr) $ evaluations $ Eimp cond expr
-                        else discard
+prop_entail cond expr
+    | all (not . (`subexprOf` cond)) [Etrue, Efalse] && all (not . (`subexprOf` expr)) [Etrue, Efalse] =
+        if   doesEntail $ entailment $ entail cond expr
+            then all (\(ts, fs) -> evalS ts fs $ Eimp cond expr) $ evaluations $ Eimp cond expr
+            else discard
+    | otherwise = discard
     where
       doesEntail :: Entailment -> Bool
       doesEntail (I _) = True

@@ -16,7 +16,7 @@ THIS SOFTWARE.
 module Main where
 
 import Test.Tasty (TestTree, defaultMain, localOption, mkTimeout, testGroup)
-import Test.Tasty.QuickCheck (testProperty)
+import Test.Tasty.QuickCheck
 
 import qualified EngineProps
 import qualified ViewProps
@@ -24,7 +24,14 @@ import qualified UtilsProps
 import qualified ParserProps
 
 main :: IO ()
-main = defaultMain $ localOption (mkTimeout $ 1 * 1000000) props
+main = defaultMain
+    -- 10 seconds PER property
+    $ localOption (mkTimeout $ 10 * 1000000)
+    -- 10,000 tests PER property.
+    $ localOption (QuickCheckTests 10000)
+    -- Try until timeout.
+    $ localOption (QuickCheckMaxRatio 10000)
+    props
 
 props :: TestTree
 props = testGroup "boolexman"
