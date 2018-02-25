@@ -29,7 +29,6 @@ module Utils where
 -}
 
 import Data.List (isPrefixOf)
-import Test.QuickCheck
 
 findOne :: Eq a => [a] -> [a] -> Maybe a
 findOne [] _ = Nothing
@@ -59,22 +58,6 @@ combinations s k
         map' :: (a -> [a] -> b) -> [a] -> [b]
         map' f [_] = []
         map' f (x:xs) = f x xs : map' f xs
-
-prop_combinations :: [a] -> NonNegative Int -> Property
-prop_combinations s (NonNegative k) =
-    (length s < 20 && k < length s && k >= 0) ==> length (combinations s k) == c (length s) k
-    where
-        c :: Int -> Int -> Int
-        c s k =
-            let s' = fromIntegral s
-                k' = fromIntegral k
-            in  fromIntegral $ fact s' `div` (fact k' * fact (s' - k'))
-
-        fact :: Integer -> Integer
-        fact n
-            | n > 0     = product [1..n]
-            | n == 0    = 1
-            | otherwise = error "please don't make me calculate the factorial of a negative number"
 
 {- Counts the number of times a substring occurs in a string.
 

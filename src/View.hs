@@ -27,7 +27,6 @@ module View( viewEntailment
 
 import Data.List.Split
 import System.Process
-import Test.QuickCheck
 
 import System.Console.Haskeline (InputT, outputStrLn)
 

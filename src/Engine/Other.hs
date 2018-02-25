@@ -17,8 +17,6 @@ module Engine.Other where
 
 import Data.List
 import Data.Maybe
-import Debug.Trace
-import Test.QuickCheck
 
 import DataTypes
 import Parser

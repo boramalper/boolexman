@@ -18,8 +18,8 @@ module DataTypes where
 import Control.Monad
 import Data.List
 import Data.List.Split
-import Test.QuickCheck
-import Test.QuickCheck.Arbitrary
+import Test.QuickCheck (sized, oneof, elements, vectorOf)
+import Test.QuickCheck.Arbitrary (Arbitrary, arbitrary)
 
 data Expr = Efalse
           | Etrue

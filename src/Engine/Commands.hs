@@ -17,7 +17,6 @@ module Engine.Commands where
 
 import Data.List (nub, delete, sort, sortBy, (\\))
 import Data.Maybe (isJust)
-import Test.QuickCheck
 
 import DataTypes
 import Engine.Transformers
@@ -54,18 +53,6 @@ tabulate expr =
         evals    = sort $ map (\(ts, fs) -> map (evalS ts fs) subexprs) $ evaluations expr
     in (subexprs, evals)
 
-prop_tabulate :: Expr -> Bool
-prop_tabulate expr = let (headers, rows) = tabulate expr
-                     in     headers /= []
-                         && allSymbolsFirst headers
-                         && all (\row -> length row == length headers) rows
-    where
-        allSymbolsFirst :: [Expr] -> Bool
-        allSymbolsFirst [x]    = True
-        allSymbolsFirst (x:xs) = if   isSymbol x
-                                 then allSymbolsFirst xs
-                                 else not $ any isSymbol xs
-
 toXNF :: Expr -> [([(Expr, Expr)], Expr)]
 toXNF expr =
     let
@@ -96,12 +83,6 @@ toCNF expr =
         -- 5. Distribute ORs over ANDs
         ++ [(nub $ distributionsOR pNOT, normalise $ distributeAllOR pNOT)]
 
-prop_toCNF :: Expr -> Bool
-prop_toCNF expr = let result = snd $ last $ toCNF expr
-                  in  if   expr == result
-                      then discard
-                      else isCNF result && (expr == result || equivalent expr result)
-
 {- toDNF, given an expression E, returns a list of ALWAYS EIGHT tuples whose
 first element is (another list of tuples whose first element is the
 subexpression before the predefined transformation and whose second element is
@@ -115,12 +96,6 @@ toDNF expr =
     in  xnf
         -- 5. Distribute ORs over ANDs
         ++ [(nub $ distributionsAND pNOT, normalise $ distributeAllAND pNOT)]
-
-prop_toDNF :: Expr -> Bool
-prop_toDNF expr = let result = snd $ last $ toDNF expr
-                  in  if   expr == result
-                      then if isDNF result then discard else False
-                      else isDNF result && equivalent expr result
 
 {- eval, given a list of true symbols, false symbols, and an expression, returns
 a tuple where the first element of the tuple is a another tuple of list of
@@ -150,16 +125,8 @@ eval trueSymbols falseSymbols expr =
                    , result                = evalDNF trueSymbols falseSymbols sop
                    }
 
-prop_eval :: Expr -> Bool
-prop_eval expr = all (\(ts, fs) -> postFalseElimination (eval ts fs expr) == toExpr (evalS ts fs expr)) $ evaluations expr
-    where
-        toExpr :: Bool -> [[Expr]]
-        toExpr True  = [[Etrue]]
-        toExpr False = [[Efalse]]
-
 -- RANDOM EXAMPLES
 --   entail (A v B v C ^ D) (A ^ B ^ C => (E => (D => (Z => E))))
-
 entail :: Expr -> Expr -> EntailmentResult
 entail cond expr
     | all (not . (`subexprOf` cond)) [Etrue, Efalse] && all (not . (`subexprOf` expr)) [Etrue, Efalse] =
@@ -213,37 +180,14 @@ entail cond expr
                                 in  Rnot (Line conds exprs) $ recurse (nub $ subexpr:conds) (delete s exprs)
             | otherwise       = F (Line conds exprs)
 
-prop_entail :: Expr -> Expr -> Bool
--- for all evaluations that make cond true, expr must be true as well
-prop_entail cond expr = if   doesEntail $ entailment $ entail cond expr
-                        then all (\(ts, fs) -> evalS ts fs $ Eimp cond expr) $ evaluations $ Eimp cond expr
-                        else discard
-    where
-      doesEntail :: Entailment -> Bool
-      doesEntail (I _) = True
-      doesEntail (F _) = False
-      doesEntail (Land _ subent) = doesEntail subent
-      doesEntail (Ror  _ subent) = doesEntail subent
-      doesEntail (Rimp _ subent) = doesEntail subent
-      doesEntail (Lnot _ subent) = doesEntail subent
-      doesEntail (Rnot _ subent) = doesEntail subent
-      doesEntail (Limp _ subent1 subent2) = doesEntail subent1 && doesEntail subent2
-      doesEntail (Lor  _ subents) = all doesEntail subents
-      doesEntail (Rand _ subents) = all doesEntail subents
-
---
-
 {-
-
 EXAMPLES:
   https://www.inf.ed.ac.uk/teaching/courses/inf1/cl/tutorials/2017/solutions4.pdf
 
   resolve ((A or B or not D) and (!A or D or E) and (!A or !C or E) and (B or C or E) and (!B or D or !E))
   resolve ((A v B v !D) ^ (!A v D v E) ^ (!A v !C v E) ^ (B v C v E) ^ (!B v D v !E))
   resolve ((A v B) ^ (A v !B v !C) ^ (!A v D) ^ (!B v C v D) ^ (!B v !D) ^ (!A v B v !D))
-
 -}
-
 resolve :: Expr -> Resolution
 resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
                    (resolutionSteps, clauseStatuses) = recurse initialStep
@@ -281,12 +225,3 @@ resolve expr = let initialStep = clausalForm $ snd $ last $ toCNF expr
 
         shouldStrike :: Clause -> Bool
         shouldStrike exprs = any (\expr -> Enot expr `elem` exprs) exprs
-
-prop_resolve :: Expr -> Bool
-prop_resolve expr = satisfiable (resolve expr) == any (\(ts, fs) -> evalS ts fs expr) (evaluations expr)
-    where
-        satisfiable :: Resolution -> Bool
-        satisfiable res = not ([[], [Efalse]] `elemN` (initialStep res) || any ([[], [Efalse]] `elemN`) (map snd (resolutionSteps res)))
-
-        elemN :: Eq a => [a] -> [a] -> Bool
-        elemN needles haystack = any (`elem` haystack) needles

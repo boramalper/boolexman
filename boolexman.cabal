@@ -84,7 +84,7 @@ executable boolexman
 test-suite props
   type: exitcode-stdio-1.0
 
-  main-is: Props.hs
+  main-is: PropsMain.hs
 
   build-depends:   base >=4.8 && <4.10
                  , split >= 0.2.3.1 && == 0.2.*

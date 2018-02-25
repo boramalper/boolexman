@@ -13,7 +13,7 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-module ViewProps where
+module ViewProps (props) where
 {-| Module `ViewTest` hosts (property) tests for view* functions in the `View`
 module. These tests are hosted here, rather than `View`, due to their dependency
 on lots of other modules (e.g. `Engine.Command`, `DataTypes`); they can also
@@ -23,7 +23,7 @@ The tests are annoyingly simple, and might even seem pointless: the whole point
 of them is to make sure we won't encounter anything like
 `*** Exception: Prelude.foldr1: empty list`.
 -}
-import Test.Tasty (TestTree, defaultMain, testGroup)
+import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty, discard)
 
 import DataTypes

@@ -16,29 +16,13 @@ THIS SOFTWARE.
 module Engine.Transformers where
 
 import Data.List (nub)
-import Test.QuickCheck
 
 import DataTypes
 import Engine.Other (evalS, evaluations, equivalent)
 import Utils (combine, combinations)
 
-prop_transformerMaybe :: (Expr -> Maybe Expr) -> Expr -> Property
-prop_transformerMaybe func expr = case func expr of
-    Just expr' -> classify (expr == expr') "trivial" $ expr == expr' || equivalent expr expr'
-    Nothing    -> discard
-
-prop_transformerAll :: (Expr -> Expr) -> Expr -> Property
-prop_transformerAll func expr = let expr' = func expr
-                                in  classify (expr == expr') "trivial" $ expr == expr' || equivalent expr expr'
-
-prop_transformations :: (Expr -> [(Expr, Expr)]) -> Expr -> Bool
-prop_transformations func expr = all (\(e, e') -> e == e' || equivalent e e' ) $ func expr
-
 normalise :: Expr -> Expr
 normalise = removeTriviality . removeRedundancy . flatten
-
-prop_normalise :: Expr -> Property
-prop_normalise = prop_transformerAll normalise
 
 {-| Removes *syntactically* redundant (i.e. repeating) subexpressions in AND, OR,
 XOR, IFF expressions, such as:
@@ -80,9 +64,6 @@ removeRedundancy = replace removeRedundancyMaybe
                                                     else Nothing
         removeRedundancyMaybe _               = Nothing
 
-prop_removeRedundancy :: Expr -> Property
-prop_removeRedundancy = prop_transformerAll removeRedundancy
-
 {- Removes trivial.
 -}
 removeTriviality :: Expr -> Expr
@@ -104,9 +85,6 @@ removeTriviality = replace removeTrivialityMaybe
                      then Just $ eOR subexprs'
                      else Nothing
         removeTrivialityMaybe _ = Nothing
-
-prop_removeTriviality :: Expr -> Property
-prop_removeTriviality = prop_transformerAll removeTriviality
 
 -- flatten nested expressions
 -- TODO: can we reduce the redundancy here?
@@ -137,9 +115,6 @@ flatten (Enot subexpr)  = Enot $ flatten subexpr
 flatten expr | isSymbol expr = expr
              | otherwise     = error "programmer error! update flatten for new non-symbols!"
 
-prop_flatten :: Expr -> Property
-prop_flatten = prop_transformerAll flatten
-
 distributeAND :: Expr -> Maybe Expr
 distributeAND (Eand subexprs) =
     let orSubexprs    = filter isOR subexprs
@@ -148,9 +123,6 @@ distributeAND (Eand subexprs) =
         then Nothing
         else Just $ Eor $ map (\x -> eAND $ nonOrSubexprs ++ x) (combine $ map (\(Eor x) -> x) orSubexprs)
 distributeAND _ = Nothing
-
-prop_distributeAND :: Expr -> Property
-prop_distributeAND = prop_transformerMaybe distributeAND
 
 distributeNOT :: Expr -> Maybe Expr
 distributeNOT expr = case expr of
@@ -161,9 +133,6 @@ distributeNOT expr = case expr of
     Enot Efalse     -> Just Etrue
     _ -> Nothing
 
-prop_distributeNOT :: Expr -> Property
-prop_distributeNOT = prop_transformerMaybe distributeNOT
-
 distributeOR :: Expr -> Maybe Expr
 distributeOR (Eor subexprs) =
     let andSubexprs    = filter isAND subexprs
@@ -173,9 +142,6 @@ distributeOR (Eor subexprs) =
         else Just $ eAND $ map (\x -> eOR $ nonAndSubexprs ++ x) (combine $ map (\(Eand x) -> x) andSubexprs)
 distributeOR _ = Nothing
 
-prop_distributeOR :: Expr -> Property
-prop_distributeOR = prop_transformerMaybe distributeOR
-
 {-| eliminateITE eliminates the given if-then-else expression of form (Γ ? Δ : Ω)
 by replacing it with ((Γ ^ Δ) v (!Γ ^ Ω)); if the given expression is of another
 form, then Nothing.
@@ -183,9 +149,6 @@ form, then Nothing.
 eliminateITE :: Expr -> Maybe Expr
 eliminateITE (Eite cond cons alt) = Just $ Eor [Eand [cond, cons], Eand [Enot cond, alt]]
 eliminateITE _ = Nothing
-
-prop_eliminateITE :: Expr -> Expr -> Expr -> Property
-prop_eliminateITE cond cons alt = prop_transformerMaybe eliminateITE $ Eite cond cons alt
 
 {-| eliminateIFF eliminates the given if-and-only-if expression of form
 (Γ1 <=> Γ2 <=> ... <=> Γn) by replacing it with (!(Γ1 + Γ2 + ... + Γn)); if the
@@ -197,9 +160,6 @@ eliminateIFF (Eiff ses) = if   length ses `mod` 2 == 0
                           else Just $ eXOR ses
 eliminateIFF _ = Nothing
 
-prop_eliminateIFF :: [Expr] -> Property
-prop_eliminateIFF subexprs = length subexprs >= 2 ==> prop_transformerMaybe eliminateIFF $ eIFF subexprs
-
 {-| eliminateIMP eliminates the given implies expressions of form (Γ1 => Γ2) by
 replacing it with (!Γ1 v Γ2); if the given expression is of another form, then
 Nothing.
@@ -207,9 +167,6 @@ Nothing.
 eliminateIMP :: Expr -> Maybe Expr
 eliminateIMP (Eimp cond cons) = Just $ Eor [Enot cond, cons]
 eliminateIMP _ = Nothing
-
-prop_eliminateIMP :: Expr -> Expr -> Property
-prop_eliminateIMP cond cons = prop_transformerMaybe eliminateIMP $ Eimp cond cons
 
 eliminateXORcnf :: Expr -> Maybe Expr
 eliminateXORcnf (Exor subexprs) = Just $ eAND $ map eOR $ concatMap (twisted subexprs) [0,2..length subexprs]
@@ -220,9 +177,6 @@ eliminateXORcnf (Exor subexprs) = Just $ eAND $ map eOR $ concatMap (twisted sub
         yadsi :: [Expr] -> [Int] -> [Expr]
         yadsi xs is = [if e `elem` is then Enot x else x | (e, x) <- zip [0..] xs]
 eliminateXORcnf _ = Nothing
-
-prop_eliminateXORcnf :: [Expr] -> Property
-prop_eliminateXORcnf subexprs = length subexprs >= 2 ==> prop_transformerMaybe eliminateXORcnf $ eXOR subexprs
 
 -- replace, deep first!
 replace :: (Expr -> Maybe Expr) -> Expr -> Expr
@@ -245,44 +199,23 @@ replace func expr =
 distributeAllAND :: Expr -> Expr
 distributeAllAND = replace distributeAND
 
-prop_distributeAllAND :: Expr -> Property
-prop_distributeAllAND = prop_transformerAll distributeAllAND
-
 distributeAllNOT :: Expr -> Expr
 distributeAllNOT = replace distributeNOT
-
-prop_distributeAllNOT :: Expr -> Property
-prop_distributeAllNOT = prop_transformerAll distributeAllNOT
 
 distributeAllOR :: Expr -> Expr
 distributeAllOR = replace distributeOR
 
-prop_distributeAllOR :: Expr -> Property
-prop_distributeAllOR = prop_transformerAll distributeAllOR
-
 eliminateAllITE :: Expr -> Expr
 eliminateAllITE = replace eliminateITE
-
-prop_eliminateAllITE :: Expr -> Property
-prop_eliminateAllITE = prop_transformerAll eliminateAllITE
 
 eliminateAllIFF :: Expr -> Expr
 eliminateAllIFF = replace eliminateIFF
 
-prop_eliminateAllIFF :: Expr -> Property
-prop_eliminateAllIFF = prop_transformerAll eliminateAllIFF
-
 eliminateAllIMP :: Expr -> Expr
 eliminateAllIMP = replace eliminateIMP
 
-prop_eliminateAllIMP :: Expr -> Property
-prop_eliminateAllIMP = prop_transformerAll eliminateAllIMP
-
 eliminateAllXORcnf :: Expr -> Expr
 eliminateAllXORcnf = replace eliminateXORcnf
-
-prop_eliminateAllXORcnf :: Expr -> Property
-prop_eliminateAllXORcnf = prop_transformerAll eliminateAllXORcnf
 
 -- Depth First Yield
 yield :: (Expr -> Maybe Expr) -> Expr -> [(Expr, Expr)]
@@ -316,41 +249,20 @@ yield func expr =
 distributionsAND :: Expr -> [(Expr, Expr)]
 distributionsAND = yield distributeAND
 
-prop_distributionsAND :: Expr -> Bool
-prop_distributionsAND = prop_transformations distributionsAND
-
 distributionsNOT :: Expr -> [(Expr, Expr)]
 distributionsNOT = yield distributeNOT
-
-prop_distributionsNOT :: Expr -> Bool
-prop_distributionsNOT = prop_transformations distributionsNOT
 
 distributionsOR :: Expr -> [(Expr, Expr)]
 distributionsOR = yield distributeOR
 
-prop_distributionsOR :: Expr -> Bool
-prop_distributionsOR = prop_transformations distributionsOR
-
 eliminationsITE :: Expr -> [(Expr, Expr)]
 eliminationsITE = yield eliminateITE
-
-prop_eliminationsITE :: Expr -> Bool
-prop_eliminationsITE = prop_transformations eliminationsITE
 
 eliminationsIFF :: Expr -> [(Expr, Expr)]
 eliminationsIFF = yield eliminateIFF
 
-prop_eliminationsIFF :: Expr -> Bool
-prop_eliminationsIFF = prop_transformations eliminationsIFF
-
 eliminationsIMP :: Expr -> [(Expr, Expr)]
 eliminationsIMP = yield eliminateIMP
 
-prop_eliminationsIMP :: Expr -> Bool
-prop_eliminationsIMP = prop_transformations eliminationsIMP
-
 eliminationsXORcnf :: Expr -> [(Expr, Expr)]
 eliminationsXORcnf = yield eliminateXORcnf
-
-prop_eliminationsXORcnf :: Expr -> Bool
-prop_eliminationsXORcnf = prop_transformations eliminationsXORcnf

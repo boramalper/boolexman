@@ -13,12 +13,18 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-module Parser (normaliseString, parse, mustParse, splitTopOn, parseAll, parseCsSymbols) where
+module Parser ( normaliseString
+              , parse
+              , mustParse
+              , splitTopOn
+              , parseAll
+              , parseCsSymbols
+              , locateFirst
+              ) where
 
 import Data.Char (isAlphaNum, isSpace, isUpper)
 import Data.List
 import Data.List.Split
-import Test.QuickCheck
 
 import DataTypes
 
@@ -69,15 +75,6 @@ mustParse :: String -> Expr
 mustParse s = case parse s of
     Left  err -> error err
     Right ex' -> ex'
-
-{- show Expr is generous with parantheses and therefore this test might be too
-merciful on some edge cases relating to operator precedence, but hey, it's still
-better than nothing!
--}
-prop_parse :: Expr -> Bool
-prop_parse expr = case parse $ show expr of
-    Left s      -> error s
-    Right expr' -> expr == expr'
 
 {- parseAll tries to parse all the strings in the list `ss`, returning either
 the firt parsing error encountered, or the list of (parsed) expressions.
@@ -226,13 +223,6 @@ match (_, m, _) = m
 
 suffix :: (String, String, String) -> String
 suffix (_, _, s) = s
-
-prop_locateOne :: [String] -> String -> Bool
-prop_locateOne subs str = test $ locateFirst subs str
-    where
-        test :: Maybe (String, String, String) -> Bool
-        test Nothing = True
-        test (Just result) = prefix result ++ match result ++ suffix result == str
 
 balanced :: String -> Bool
 balanced s = recurse 0 s == 0
