@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -39,7 +39,7 @@ prop_tabulate expr = let (headers, rows) = tabulate expr
                          && all (\row -> length row == length headers) rows
     where
         allSymbolsFirst :: [Expr] -> Bool
-        allSymbolsFirst [x]    = True
+        allSymbolsFirst []    = True
         allSymbolsFirst (x:xs) = if   isSymbol x
                                  then allSymbolsFirst xs
                                  else not $ any isSymbol xs

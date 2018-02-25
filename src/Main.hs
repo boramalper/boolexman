@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -79,11 +79,11 @@ process line =
             in  if   length matches /= 3
                 then Left "Parsing Error: supply two lists of symbols, and an expression!"
                 else case parseCsSymbols $ matches !! 0 of
-                    Left err          -> Left $ "Parsing Error: " ++ err ++ "(in the first list)"
+                    Left err          -> Left $ "Parsing Error: " ++ err ++ " (in the first list)"
                     Right trueSymbols -> case parseCsSymbols $ matches !! 1 of
-                        Left err           -> Left $ "Parsing Error: " ++ err ++ "(in the second list)"
+                        Left err           -> Left $ "Parsing Error: " ++ err ++ " (in the second list)"
                         Right falseSymbols -> case parse $ matches !! 2 of
-                            Left err  -> Left $ "Parsing Error: " ++ err ++ "(in the expression)"
+                            Left err  -> Left $ "Parsing Error: " ++ err ++ " (in the expression)"
                             Right expr -> Right $ viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr -- "tS: " ++ show trueSymbols ++ "  fS: " ++ show falseSymbols ++ "  ex: " ++ show exp
         "todnf" -> case parseSoleExpression argument of
             Left  err -> Left err
@@ -101,7 +101,7 @@ process line =
                 then    Left $ "Parsing Error: could not parse the argument! (make"
                      ++ "  sure you enclose the expressions in parantheses)"
                 else case parseAll expressions of
-                    Left err    -> Left $ "Parsing Error: " ++ err
+                    Left err -> Left $ "Parsing Error: " ++ err
                     Right [cond, expr] ->
                         if   all (not . (`subexprOf` cond)) [Etrue, Efalse] && all (not . (`subexprOf` expr)) [Etrue, Efalse]
                         then Right $ viewEntailment cond expr $ entail cond expr
@@ -112,7 +112,6 @@ process line =
     where
         -- CAPTURES the expression enclosed in parantheses
         expressionCRE = "\\((.*)\\)"
-        symbolRE     = "[A-Z][a-zA-Z0-9]*"
         -- CAPTURES the comma-separated list of symbols between the square
         -- parantheses
         -- symbolListCRE = "\\[(" ++ symbolRE ++ "(?: ?, ?" ++ symbolRE ++ ")*)\\]"
@@ -126,4 +125,4 @@ process line =
                             ++ "  sure you enclose the expression in parantheses)"
                 else case parse str of
                     Left err  -> Left $ "Parsing Error: " ++ err
-                    Right exp -> Right exp
+                    Right expr -> Right expr

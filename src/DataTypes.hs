@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -17,7 +17,6 @@ module DataTypes where
 
 import Control.Monad
 import Data.List
-import Data.List.Split
 import Test.QuickCheck (sized, oneof, elements, vectorOf)
 import Test.QuickCheck.Arbitrary (Arbitrary, arbitrary)
 
@@ -60,18 +59,23 @@ instance Ord Expr where
             cardinality (Eiff subexprs) = 1 + sum (map cardinality subexprs)
             cardinality (Exor subexprs) = 1 + sum (map cardinality subexprs)
 
+isNOT :: Expr -> Bool
 isNOT (Enot _) = True
 isNOT _ = False
 
+isAND :: Expr -> Bool
 isAND (Eand _) = True
 isAND _ = False
 
+isOR :: Expr -> Bool
 isOR (Eor _) = True
 isOR _ = False
 
+isIMP :: Expr -> Bool
 isIMP (Eimp _ _) = True
 isIMP _ = False
 
+isTrueFalse :: Expr -> Bool
 isTrueFalse Etrue  = True
 isTrueFalse Efalse = True
 isTrueFalse _      = False
@@ -82,7 +86,7 @@ subexprOf a b =
     case b of
         Efalse               -> False
         Etrue                -> False
-        (Esym s)             -> False
+        (Esym _)             -> False
         (Enot subexpr)       -> a `subexprOf` subexpr
         (Eimp cond cons)     -> a `subexprOf` cond || a `subexprOf` cons
         (Eite cond cons alt) -> a `subexprOf` cond || a `subexprOf` cons || a `subexprOf` alt
@@ -147,6 +151,14 @@ data Resolution = Resolution { initialStep     :: Step
                              , clauseStatuses  :: ClauseStatuses
                              }
 -----------------------------------------
+isEsym :: Expr -> Bool
+isEsym (Esym _) = True
+isEsym _        = False
+
+isEnotX :: (Expr -> Bool) -> Expr -> Bool
+isEnotX isX (Enot se) = isX se
+isEnotX _   _         = False
+
 isSymbol :: Expr -> Bool
 isSymbol (Esym _) = True
 isSymbol Etrue    = True

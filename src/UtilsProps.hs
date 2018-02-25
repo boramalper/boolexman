@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -17,7 +17,7 @@ module UtilsProps (props) where
 
 import Test.QuickCheck.Modifiers -- (NonNegative)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.QuickCheck (Property, testProperty, discard, (==>))
+import Test.Tasty.QuickCheck (Property, testProperty, (==>))
 
 import Utils (combinations)
 

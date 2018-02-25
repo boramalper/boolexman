@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -15,13 +15,13 @@ THIS SOFTWARE.
 -}
 module Engine.Commands where
 
-import Data.List (nub, delete, sort, sortBy, (\\))
+import Data.List (nub, delete, sort, (\\))
 import Data.Maybe (isJust)
 
 import DataTypes
 import Engine.Transformers
 import Engine.Other
-import Utils (cartesianProduct, combinations)
+import Utils (cartesianProduct)
 
 subexpressions :: Expr -> SubexpressionsResult
 subexpressions expr = let set = recurse expr
@@ -44,12 +44,12 @@ subexpressions expr = let set = recurse expr
         flattenSET :: SET -> [Expr]
         flattenSET (SET expr sets) = sort $ nub $ expr : concatMap flattenSET sets
 
+symbols :: Expr -> [Expr]
 symbols = symbols'
 
 tabulate :: Expr -> ([Expr], [[Bool]])
 tabulate expr =
-    let syms     = symbols expr
-        subexprs = sort $ list $ subexpressions expr
+    let subexprs = sort $ list $ subexpressions expr
         evals    = sort $ map (\(ts, fs) -> map (evalS ts fs) subexprs) $ evaluations expr
     in (subexprs, evals)
 
@@ -78,7 +78,7 @@ is resultant expression E' that is equivalent to E.
 toCNF :: Expr -> [([(Expr, Expr)], Expr)]
 toCNF expr =
     let xnf          = toXNF expr
-        (dNOT, pNOT) = last xnf
+        (_, pNOT) = last xnf
     in  xnf
         -- 5. Distribute ORs over ANDs
         ++ [(nub $ distributionsOR pNOT, normalise $ distributeAllOR pNOT)]
@@ -92,7 +92,7 @@ is resultant expression E' that is equivalent to E.
 toDNF :: Expr -> [([(Expr, Expr)], Expr)]
 toDNF expr =
     let xnf          = toXNF expr
-        (dNOT, pNOT) = last xnf
+        (_, pNOT) = last xnf
     in  xnf
         -- 5. Distribute ORs over ANDs
         ++ [(nub $ distributionsAND pNOT, normalise $ distributeAllAND pNOT)]

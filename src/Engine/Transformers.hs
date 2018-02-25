@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -18,7 +18,6 @@ module Engine.Transformers where
 import Data.List (nub)
 
 import DataTypes
-import Engine.Other (evalS, evaluations, equivalent)
 import Utils (combine, combinations)
 
 normalise :: Expr -> Expr

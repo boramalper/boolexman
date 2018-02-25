@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -56,7 +56,7 @@ combinations s k
     | otherwise = []  -- C(length s, k) = 0,  k < 0
     where
         map' :: (a -> [a] -> b) -> [a] -> [b]
-        map' f [_] = []
+        map' _ [_] = []
         map' f (x:xs) = f x xs : map' f xs
 
 {- Counts the number of times a substring occurs in a string.

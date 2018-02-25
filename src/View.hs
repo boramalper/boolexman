@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -34,16 +34,16 @@ import DataTypes
 
 -- mp4man style, bottom up.
 instance Show Entailment where
-    show (I line)               = showEntailment "I"   line []
-    show (F line)               = showEntailment "F"   line []
-    show (Land line entailment) = showEntailment "^L"  line [entailment]
-    show (Ror line entailment)  = showEntailment "vR"  line [entailment]
-    show (Rimp line entailment) = showEntailment "=>R" line [entailment]
-    show (Lnot line entailment) = showEntailment "!L"  line [entailment]
-    show (Rnot line entailment) = showEntailment "!R"  line [entailment]
-    show (Limp line ent1 ent2)  = showEntailment "=>L" line [ent1, ent2]
-    show (Lor   line ents)      = showEntailment "vL"  line ents
-    show (Rand  line ents)      = showEntailment "^R"  line ents
+    show (I    line)           = showEntailment "I"   line []
+    show (F    line)           = showEntailment "F"   line []
+    show (Land line ent)       = showEntailment "^L"  line [ent]
+    show (Ror  line ent)       = showEntailment "vR"  line [ent]
+    show (Rimp line ent)       = showEntailment "=>R" line [ent]
+    show (Lnot line ent)       = showEntailment "!L"  line [ent]
+    show (Rnot line ent)       = showEntailment "!R"  line [ent]
+    show (Limp line ent1 ent2) = showEntailment "=>L" line [ent1, ent2]
+    show (Lor  line ents)      = showEntailment "vL"  line ents
+    show (Rand line ents)      = showEntailment "^R"  line ents
 
 showEntailment :: String -> Line -> [Entailment] -> String
 showEntailment rule line entailments =
@@ -92,10 +92,10 @@ boxAppend padding strings =
             | length strs <= height = replicate (height - length strs) (replicate (length $ head strs) ' ') ++ strs
             | otherwise = error "strs is taller than height!"
 
-        fixedWidth :: Int -> String -> String
-        fixedWidth width str
-            | length str <= width = str ++ replicate (width - length str) ' '
-            | otherwise = error "str is longer than width!"
+fixedWidth :: Int -> String -> String
+fixedWidth width str
+    | length str <= width = str ++ replicate (width - length str) ' '
+    | otherwise = error "str is longer than width!"
 
 printHeader :: String -> String
 printHeader str = str ++ "\n" ++ replicate (visualLength str) '━'
@@ -104,7 +104,7 @@ printHeader str = str ++ "\n" ++ replicate (visualLength str) '━'
         ignoring the terminal escape sequences.
         -}
         visualLength :: String -> Int
-        visualLength str = length str - 4 * '\x1b' `countIn` str
+        visualLength s = length s - 4 * '\x1b' `countIn` s
 
         countIn :: Eq a => a -> [a] -> Int
         countIn t = length . filter (== t)
@@ -175,7 +175,7 @@ viewTabulate expr (headers, rows) =
         ++ "\n" ++ foldr1 (\a b -> a ++ "\n" ++ b) (forEach (zip [0..] rows) (\(i, row) ->
             "║" ++
                 (if i `mod` 2 == 1 then reverseText else id)
-                (foldr1 (\a b -> a ++ "│" ++ b) (zipWith (\len cell -> center len (showCell cell)) colLengths row))
+                (foldr1 (\a b -> a ++ "│" ++ b) (zipWith (\len cell -> fixedWidth len $ center len (showCell cell)) colLengths row))
             ++ "║"
         ))
         ++ "\n" ++ "╚" ++ foldr1 (\a b -> a ++ "╧" ++ b) (map (`replicate` '═') colLengths) ++ "╝"
@@ -187,13 +187,6 @@ viewTabulate expr (headers, rows) =
         showCell :: Bool -> String
         showCell True  = "⊤"
         showCell False = "⊥"
-
-        center :: Int -> String -> String
-        center len str
-            | length str <= len = let leftPadLen  = (len - length str) `div` 2
-                                      rightPadLen = (len - length str) - leftPadLen
-                                  in  replicate leftPadLen ' ' ++ str ++ replicate rightPadLen ' '
-            | otherwise = error "str is longer than len!"
 
 viewResolution :: Expr -> Resolution -> String
 viewResolution expr res =
@@ -227,7 +220,7 @@ viewSubexpressions expr res =
         showSET = recurse 0
             where
                 recurse :: Int -> SET -> String
-                recurse level (SET expr []) = show expr
+                recurse _     (SET expr []) = show expr
                 recurse level (SET expr sets) =
                     let indent      = (concat $ replicate level "│  ")
                         linePrefix  = indent ++ "├─ "

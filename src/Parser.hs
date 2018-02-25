@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -40,14 +40,10 @@ parseCsSymbols []  = Right []
 parseCsSymbols str =
     case parseAll $ splitOn "," $ removeSpaces $ normaliseString str of
         Left err -> Left err
-        Right expressions -> if   all isSymbol expressions
+        Right expressions -> if   all (\e -> isSymbol e && not (isTrueFalse e)) expressions
                              then Right expressions
                              else Left "not a list of symbols!"
     where
-        isSymbol :: Expr -> Bool
-        isSymbol (Esym _) = True
-        isSymbol _        = False
-
         -- removeSpaces after the comma
         removeSpaces :: String -> String
         removeSpaces [] = []
@@ -60,7 +56,7 @@ parse :: String -> Either ParsingError Expr
 parse s
     | balanced s = recurse [parseITE, parseIFF, parseIMP, parseOR, parseXOR, parseAND, parseNOT, parseSYM]
     | otherwise  = Left "unbalanced parantheses!"
-    where
+    where-- TODO: add ny
         recurse :: [String -> Either ParsingError Expr] -> Either ParsingError Expr
         recurse [] = Left "could not parse the expression"
         recurse (p:parsers) = case p $ normaliseString s of

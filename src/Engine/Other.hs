@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -19,7 +19,6 @@ import Data.List
 import Data.Maybe
 
 import DataTypes
-import Parser
 import Utils (findOne, combinations)
 
 -- strict eval!

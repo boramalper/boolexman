@@ -1,5 +1,5 @@
 {- boolexman -- boolean expression manipulator
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 Permission to use, copy, modify, and/or distribute this software for any purpose
 with or without fee is hereby granted, provided that the above copyright notice
@@ -36,7 +36,7 @@ props = testGroup "View"
     [ testProperty "prop_viewEntailment"     prop_viewEntailment
     , testProperty "prop_viewTabulate"       prop_viewTabulate
     , testProperty "prop_viewResolution"     prop_viewResolution
-    , testProperty "prop_viewSubexpressions" prop_viewResolution
+    , testProperty "prop_viewSubexpressions" prop_viewSubexpressions
     , testProperty "prop_viewSymbols"        prop_viewSymbols
     , testProperty "prop_viewCNF"            prop_viewCNF
     , testProperty "prop_viewDNF"            prop_viewDNF
@@ -47,7 +47,7 @@ prop_viewEntailment :: Expr -> Expr -> Bool
 prop_viewEntailment cond expr
     | all (not . (`subexprOf` cond)) [Etrue, Efalse] && all (not . (`subexprOf` expr)) [Etrue, Efalse] =
         let res = viewEntailment cond expr $ entail cond expr
-        in  "\n\n" `countIn` res == 9
+        in  ("\n\n" `countIn` res) `elem` [9, 10]
     | otherwise = discard
 
 prop_viewTabulate :: Expr -> Bool
@@ -81,6 +81,8 @@ prop_viewDNF expr =
     in  "\n\n" `countIn` res == 12
 
 prop_viewEval :: [Expr] -> [Expr] -> Expr -> Bool
-prop_viewEval trueSymbols falseSymbols expr =
-    let res = viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr
-    in  "\n\n" `countIn` res == 7
+prop_viewEval trueSymbols falseSymbols expr
+    | all (\s -> isSymbol s || isEnotX isEsym s) trueSymbols && all (\s -> isEsym s || isEnotX isEsym s) falseSymbols =
+        let res = viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr
+        in  ("\n\n" `countIn` res) `elem` [7, 8]
+    | otherwise = discard

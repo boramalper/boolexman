@@ -1,5 +1,5 @@
 # boolexman
-*__bool__ean __ex__pression __man__ipulator for educational purposes*
+_**bool**ean **ex**pression **man**ipulator for educational purposes_
 
 __boolexman__ is a boolean expression manipulator (program) to aid teaching
 or studying propositional logic, primarily aimed for the [*Informatics 1 -
@@ -13,6 +13,46 @@ from those that can transform any given expression into Disjunctive Normal Form
 those (functions) for fully-automated resolution, entailment, and
 partial-evaluation. All commands shows *their working* step-by-step, with
 detailed explanations of each rule that was used.
+
+## Installation
+1. Clone the repository
+   ```
+   $ git clone https://github.com/boramalper/boolexman
+   $ cd boolexman
+   ```
+
+2. Update the `cabal` package cache
+   ```
+   $ cabal update
+   ```
+
+3. Install the dependencies of __boolexman__:
+   ```
+   $ cabal install --only-dependencies --enable-tests
+   ```
+
+4. Test if __boolexman__ works:
+   ```
+   $ cabal run
+   ```
+
+5. (Optional) Install it to your system:
+   ```
+   $ cabal install
+   ```
+
+   * If you wish not to install, you can always navigate to the directory you
+     cloned __boolexman__ to, and execute `cabal run`.
+
+### Running the Tests
+Navigate to the directory you cloned __boolexman__ to, and execute `cabal test`.
+
+Beware that some of the tests might (very likely indeed) timeout -due to some
+performance problems I intend to address in an unforeseeable future- __NONE__ of
+the tests should fail.
+
+If you intend to contribute to __boolexman__, contact me -Bora M. Alper- at
+<bora@boramalper.org>.
 
 ## Quick Manual
 Each time you run __boolexman__, you will be greeted with a screen like follows:
@@ -254,53 +294,25 @@ To save the output of a command:
 ## License
 The ISC License, see [LICENSE](./LICENSE) for details.
 
-Copyright (c) 2017 Mert Bora ALPER <bora@boramalper.org>
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
+
+### Notice
+Beware that __boolexman__ used to use GNU Readline library prior to the commit
+[c93cb4350823832fc42883661f152c523d767bd4](https://github.com/boramalper/boolexman/commit/c93cb4350823832fc42883661f152c523d767bd4),
+but mistakenly said to be licensed under The ISC License where it should have
+been The General Public License (due to the Copyleft clause).
 
 ## Acknowledgements
 
 
 
-__TODO:__
-* entail (!True) (True => Q) fails!
-* write quickchecks for every single command!
-* Write manual!
-* `prop_toCNF` and `prop_toDNF` are running very slowly, probably because of
-  `toCNF` and `toDNF` are slow! Fix that.
-
-quick manual:
-    DONE  quit
-
-          help
-
-          tabulate (P and Q and R or S implies T)
-
-    DONE  subexpressions ((P and Q and R) or (S implies T))
-
-    DONE  symbols ((P and Q and R) or (S implies T))
-
-    DONE  eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
-
-    DONE  toDNF ((P and Q and R) or (S implies T))
-    DONE  toCNF ((P and Q and R) or (S implies T))
-
-    DONE  resolve (((P and Q and R) or (S implies T)))
-
-    DONE  entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
-
-syntax:
-
-    command: <small letter>*
     symbol: <capital letter><small letter>*
     symbols: [symbol <, symbol>*]
     expression: (...)
 
     True and False are reserved symbols
 
-ITE
-IFF
-IMP
-
-operators (in order):
+operators (in order
 
     not !
     and ^
@@ -317,7 +329,3 @@ operators (in order):
     e.g. A + B <=> C => D ^ (A v B) ? (A ? B : C) : B
          A+B<=>C=>D^(AvB)?(A?B:C):B
          if A xor B implies (C or D) and (A or B) then (if A then B else C) else B
-
-regexes:
-
-    (eval) \[([A-Z][a-zA-Z]*(?: *, *[A-Z][a-zA-Z]*)*)\] \[([A-Z][a-zA-Z]*(?: *, *[A-Z][a-zA-Z]*)*)\] \((.*)\)
