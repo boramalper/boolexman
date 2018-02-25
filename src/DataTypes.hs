@@ -95,9 +95,7 @@ subexprOf a b =
         (Exor subexprs)      -> any (a `subexprOf`) subexprs
         (Eiff subexprs)      -> any (a `subexprOf`) subexprs
 
------------------------------------------
 -- SEQUENT CALCULUS
-
 --                  TURNSTILE
 --                     HERE
 data Line = Line [Expr]       [Expr] deriving (Eq)
@@ -136,7 +134,6 @@ data EntailmentResult = EntailmentResult { condITEeliminations    :: [(Expr, Exp
                                          , entailment             :: Entailment
                                          }
 
------------------------------------------
 type Clause = [Expr]
 type Step   = [Clause]
 type Resolvent = Expr
@@ -145,12 +142,11 @@ data ClauseStatus = ResolvedBy Resolvent
                   deriving (Eq, Show)
 type ResolutionSteps = [(Resolvent, Step)]
 type ClauseStatuses  = [(Clause, ClauseStatus)]
--- TODO: can we make this better? the data types I mean for linked & related list
 data Resolution = Resolution { initialStep     :: Step
                              , resolutionSteps :: ResolutionSteps
                              , clauseStatuses  :: ClauseStatuses
                              }
------------------------------------------
+
 isEsym :: Expr -> Bool
 isEsym (Esym _) = True
 isEsym _        = False

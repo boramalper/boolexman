@@ -56,7 +56,7 @@ parse :: String -> Either ParsingError Expr
 parse s
     | balanced s = recurse [parseITE, parseIFF, parseIMP, parseOR, parseXOR, parseAND, parseNOT, parseSYM]
     | otherwise  = Left "unbalanced parantheses!"
-    where-- TODO: add ny
+    where
         recurse :: [String -> Either ParsingError Expr] -> Either ParsingError Expr
         recurse [] = Left "could not parse the expression"
         recurse (p:parsers) = case p $ normaliseString s of
