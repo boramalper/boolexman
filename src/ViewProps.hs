@@ -13,7 +13,7 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 -}
-module ViewTest where
+module ViewProps where
 {-| Module `ViewTest` hosts (property) tests for view* functions in the `View`
 module. These tests are hosted here, rather than `View`, due to their dependency
 on lots of other modules (e.g. `Engine.Command`, `DataTypes`); they can also
@@ -23,12 +23,25 @@ The tests are annoyingly simple, and might even seem pointless: the whole point
 of them is to make sure we won't encounter anything like
 `*** Exception: Prelude.foldr1: empty list`.
 -}
-import Test.QuickCheck
+import Test.Tasty (TestTree, defaultMain, testGroup)
+import Test.Tasty.QuickCheck (testProperty, discard)
 
 import DataTypes
 import Engine.Commands
 import View
-import Utils (count)
+import Utils (countIn)
+
+props :: TestTree
+props = testGroup "View"
+    [ testProperty "prop_viewEntailment"     prop_viewEntailment
+    , testProperty "prop_viewTabulate"       prop_viewTabulate
+    , testProperty "prop_viewResolution"     prop_viewResolution
+    , testProperty "prop_viewSubexpressions" prop_viewResolution
+    , testProperty "prop_viewSymbols"        prop_viewSymbols
+    , testProperty "prop_viewCNF"            prop_viewCNF
+    , testProperty "prop_viewDNF"            prop_viewDNF
+    , testProperty "prop_viewEval"           prop_viewEval
+    ]
 
 prop_viewEntailment :: Expr -> Expr -> Bool
 prop_viewEntailment cond expr
@@ -69,5 +82,5 @@ prop_viewDNF expr =
 
 prop_viewEval :: [Expr] -> [Expr] -> Expr -> Bool
 prop_viewEval trueSymbols falseSymbols expr =
-    let res = viewEval trueSymbols falseSymbols expr $ eval expr
+    let res = viewEval trueSymbols falseSymbols expr $ eval trueSymbols falseSymbols expr
     in  "\n\n" `countIn` res == 1
