@@ -84,7 +84,8 @@ executable boolexman
   -- Not a good practice indeed, but it kept things clear for me and allowed
   -- me to move faster.
   -- Bora.
-  ghc-options: -threaded -O2 -- -Wall -fno-warn-name-shadowing
+  -- -Wall -fno-warn-name-shadowing
+  ghc-options: -threaded -O2
 
 
 test-suite props
@@ -117,4 +118,5 @@ test-suite props
  default-extensions:  TemplateHaskell
 
  -- Options to pass to ghc.
- ghc-options: -threaded -O2 -- -Wall  -fno-warn-name-shadowing
+ -- -Wall  -fno-warn-name-shadowing
+ ghc-options: -threaded -O2
