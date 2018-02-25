@@ -241,27 +241,31 @@ case-insensitive!
   ```
 
 
+### Operator Precedence & Associativity
+In order of precedence:
 
-  ```
-  quit
+| Operator | Opeartor (symbolic) | Associativity |
+|:---------|:-------------------:|:--------------|
+| not | ! | N/A (prefix operator) |
+| and | ^ | Associative |
+| xor | + | Associative |
+| or  | v | Associative |
+| implies | => | Right-Associative |
+| iff | <=> | Associative |
+| if-then-else | ( ? : ) | N/A (must always be enclosed in parantheses)
 
-  help
+For instance
 
-  tabulate (P and Q and R or S implies T)
+```
+subexpressions (A ? (B ? C : D) : E xor not F and G implies H or I iff J)
 
-  subexpressions ((P and Q and R) or (S implies T))
+```
 
-  symbols ((P and Q and R) or (S implies T))
+would be interpreted as
 
-  eval [P, Q] [R, S, T] ((P and Q and R) or (S implies T))
-
-  toDNF ((P and Q and R) or (S implies T))
-  toCNF ((P and Q and R) or (S implies T))
-
-  resolve (((P and Q and R) or (S implies T)))
-
-  entail ((A implies (B and Q)) and (B implies C)) (A implies C)  -- gentzen
-  ```
+```
+subexpressions (A ? (B ? C : D) : (((E xor (not F and G)) implies (H or I)) iff J))
+```
 
 ### Saving Outputs
 As mentioned previously, __boolexman__ pipes its output through `less` to
@@ -287,9 +291,60 @@ To save the output of a command:
 * Done! The prompt at the bottom of your terminal should turn back into `:` or
   `(END)`.
 
-### Syntax
+### Command Syntax
+In its most general form:
 
-* __Command:__
+```
+<VERB> <VERB SPECIFIC ARGUMENTS...>
+```
+
+The definitions below should be decipherable to many, although beware that none
+of them are formal definitions (especially with respect to the spaces).
+
+* `<VERB>`
+
+  ```
+  [A-Za-z]+
+  ```
+
+* `<SYMBOL>`
+
+  ```
+  [A-Z][a-z]*
+  ```
+
+  `True` and `False` are reserved symbols, meaning *true* and *false*
+  respectively.
+
+* `<SYMBOL LIST>`
+
+  ```
+  \[<SYMBOL>(, <SYMBOL>)*\]
+  ```
+
+* `<PREFIX OPERATOR>`
+
+  ```
+  (!  |  not)
+  ```
+
+* `<INFIX OPERATOR>`
+
+  ```
+  (and  |  ^  |  xor  |  \+  |  or  |  v  |  implies  |  =>  |  iff  |  <=>)
+  ```
+
+* `<ITE EXPRESSION>`
+
+  ```
+  \((if <EXPRESSION> then <EXPRESSION> else <EXPRESSION>  |  <EXPRESSION> \? <EXPRESSION> : <EXPRESSION>)\)
+  ```
+
+* `<EXPRESSION>`
+
+  ```
+  (<SYMBOL>  |  <PREFIX OPERATOR> <EXPRESSION>  |  <EXPRESSION> <INFIX OPERATOR> <EXPRESSION>  |  <ITE EXPRESSION>)
+  ```
 
 ## License
 The ISC License, see [LICENSE](./LICENSE) for details.
@@ -303,29 +358,11 @@ but mistakenly said to be licensed under The ISC License where it should have
 been The General Public License (due to the Copyleft clause).
 
 ## Acknowledgements
+In no specific order, I am grateful
 
-
-
-    symbol: <capital letter><small letter>*
-    symbols: [symbol <, symbol>*]
-    expression: (...)
-
-    True and False are reserved symbols
-
-operators (in order
-
-    not !
-    and ^
-    xor +
-    or  v
-    implies =>
-    iff <=>
-    if X then Y else Z  (X ? Y : Z)
-
-    e.g. A ^ B <=> C v D => E + F ? C : D  is unambigous!
-
-    A iff B <=> C
-
-    e.g. A + B <=> C => D ^ (A v B) ? (A ? B : C) : B
-         A+B<=>C=>D^(AvB)?(A?B:C):B
-         if A xor B implies (C or D) and (A or B) then (if A then B else C) else B
+* to __Prof. Michael Fourman__ for teaching us the principles of logic, which
+  I relied on extensively in developing this program, and of computation.
+* to __Prof. Don Sannella__ for teaching us functional programming, which
+  enabled me to complete this program in less than two months thanks to the
+  expressivity (and type system) of Haskell.
+* and to __both__ of them, because [Curry–Howard correspondence](https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence)! =)
