@@ -48,10 +48,10 @@ detailed explanations of each rule that was used.
 Navigate to the directory you cloned __boolexman__ to, and execute `cabal test`.
 
 Beware that some of the tests might (very likely indeed) timeout -due to some
-performance problems I intend to address in an unforeseeable future- __NONE__ of
+performance problems I intend to address in an unforeseeable future- __none__ of
 the tests should fail.
 
-If you intend to contribute to __boolexman__, contact me -Bora M. Alper- at
+If you intend to contribute to __boolexman__, contact me at
 <bora@boramalper.org>.
 
 ## Quick Manual
@@ -90,6 +90,28 @@ case-insensitive!
 
   Quits the program. Takes no arguments.
 
+- __`symbols`__ `expression :: Expression`
+
+  Extracts all the symbols of `expression`.
+
+  __Example:__
+
+  ```
+     1> symbols (if A iff not B then C implies D xor E else True and F or not D)
+  ```
+
+  ```
+      1 symbols ((A <=> !B) ? (C => (D + E)) : ((True ^ F) v !D))
+      2 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      3
+      4   • A
+      5   • B
+      6   • C
+      7   • D
+      8   • E
+      9   • F
+  ```
+
 - __`subexpressions`__ `expression :: Expression`
 
   Finds all the subexpressions of `expression`, including the `expression`
@@ -98,64 +120,84 @@ case-insensitive!
   __Example:__
 
   ```
-     1> subexpressions (if A iff B then C implies D xor E else F and G or not D)
+     1> subexpressions (if A iff not B then C implies D xor E else True and F or not D)
   ```
 
   ```
-      1 Sub-Expression Tree:
-      2   ((A <=> B) ? (C => (D + E)) : ((F ^ G) v !D))
-      3   ├─ (A <=> B)
-      4   │  ├─ A
-      5   │  ├─ B
-      6   ├─ (C => (D + E))
-      7   │  ├─ C
-      8   │  ├─ (D + E)
-      9   │  │  ├─ D
-     10   │  │  ├─ E
-     11   ├─ ((F ^ G) v !D)
-     12   │  ├─ (F ^ G)
-     13   │  │  ├─ F
-     14   │  │  ├─ G
-     15   │  ├─ !D
-     16   │  │  ├─ D
-     17
-     18
-     19 Sub-Expression List:
-     20   • ((A <=> B) ? (C => (D + E)) : ((F ^ G) v !D))
-     21   • (A <=> B)
-     22   • A
-     23   • B
-     24   • (C => (D + E))
-     25   • C   
-     26   • (D + E)
+      1 subexpressions ((A <=> !B) ? (C => (D + E)) : ((True ^ F) v !D))
+      2 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      3
+      4 Sub-Expression Tree:
+      5   ((A <=> !B) ? (C => (D + E)) : ((True ^ F) v !D))
+      6   ├─ (A <=> !B)
+      7   │  ├─ A
+      8   │  ├─ !B
+      9   │  │  ├─ B
+     10   ├─ (C => (D + E))
+     11   │  ├─ C
+     12   │  ├─ (D + E)
+     13   │  │  ├─ D
+     14   │  │  ├─ E
+     15   ├─ ((True ^ F) v !D)
+     16   │  ├─ (True ^ F)
+     17   │  │  ├─ True
+     18   │  │  ├─ F
+     19   │  ├─ !D
+     20   │  │  ├─ D
+     21
+     22 Sub-Expression List:
+     23   • True
+     24   • A
+     25   • B
+     26   • C
      27   • D
      28   • E
-     29   • ((F ^ G) v !D)
-     30   • (F ^ G)
-     31   • F
-     32   • G
-     33   • !D
+     29   • F
+     30   • !B
+     31   • !D
+     32   • (D + E)
+     33   • (True ^ F)
+     34   • (A <=> !B)
+     35   • (C => (D + E))
+     36   • ((True ^ F) v !D)
+     37   • ((A <=> !B) ? (C => (D + E)) : ((True ^ F) v !D))
   ```
 
-- __`symbols`__ `expression :: Expression`
+- __`tabulate`__ `expression :: Expression`
 
-  Extracts all the symbols of `expression`.
+  Constructs a truth table with subexpressions as columns, and possible
+  evaluations as rows of the truth table.
 
   __Example:__
 
   ```
-     1> symbols (if A iff B then C implies D xor E else F and G or not D)
+     1> tabulate (C implies D xor E <=> True and F or not D)
   ```
 
   ```
-     1 Symbols:
-     2   • A
-     3   • B
-     4   • C
-     5   • D
-     6   • E
-     7   • F
-     8   • G
+      1 tabulate ((C => (D + E)) <=> ((True ^ F) v !D))
+      2 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      3
+      4 ╔════╤═╤═╤═╤═╤══╤═══════╤══════════╤══════════════╤═════════════════╤══════════════════════════════════════╗
+      5 ║True│C│D│E│F│!D│(D + E)│(True ^ F)│(C => (D + E))│((True ^ F) v !D)│((C => (D + E)) <=> ((True ^ F) v !D))║
+      6 ╟────┼─┼─┼─┼─┼──┼───────┼──────────┼──────────────┼─────────────────┼──────────────────────────────────────╢
+      7 ║ ⊤  │⊥│⊥│⊥│⊥│⊤ │   ⊥   │    ⊥     │      ⊤       │        ⊤        │                  ⊤                   ║
+      8 ║ ⊤  │⊥│⊥│⊥│⊤│⊤ │   ⊥   │    ⊤     │      ⊤       │        ⊤        │                  ⊤                   ║
+      9 ║ ⊤  │⊥│⊥│⊤│⊥│⊤ │   ⊤   │    ⊥     │      ⊤       │        ⊤        │                  ⊤                   ║
+     10 ║ ⊤  │⊥│⊥│⊤│⊤│⊤ │   ⊤   │    ⊤     │      ⊤       │        ⊤        │                  ⊤                   ║
+     11 ║ ⊤  │⊥│⊤│⊥│⊥│⊥ │   ⊤   │    ⊥     │      ⊤       │        ⊥        │                  ⊥                   ║
+     12 ║ ⊤  │⊥│⊤│⊥│⊤│⊥ │   ⊤   │    ⊤     │      ⊤       │        ⊤        │                  ⊤                   ║
+     13 ║ ⊤  │⊥│⊤│⊤│⊥│⊥ │   ⊥   │    ⊥     │      ⊤       │        ⊥        │                  ⊥                   ║
+     14 ║ ⊤  │⊥│⊤│⊤│⊤│⊥ │   ⊥   │    ⊤     │      ⊤       │        ⊤        │                  ⊤                   ║
+     15 ║ ⊤  │⊤│⊥│⊥│⊥│⊤ │   ⊥   │    ⊥     │      ⊥       │        ⊤        │                  ⊥                   ║
+     16 ║ ⊤  │⊤│⊥│⊥│⊤│⊤ │   ⊥   │    ⊤     │      ⊥       │        ⊤        │                  ⊥                   ║
+     17 ║ ⊤  │⊤│⊥│⊤│⊥│⊤ │   ⊤   │    ⊥     │      ⊤       │        ⊤        │                  ⊤                   ║
+     18 ║ ⊤  │⊤│⊥│⊤│⊤│⊤ │   ⊤   │    ⊤     │      ⊤       │        ⊤        │                  ⊤                   ║
+     19 ║ ⊤  │⊤│⊤│⊥│⊥│⊥ │   ⊤   │    ⊥     │      ⊤       │        ⊥        │                  ⊥                   ║
+     20 ║ ⊤  │⊤│⊤│⊥│⊤│⊥ │   ⊤   │    ⊤     │      ⊤       │        ⊤        │                  ⊤                   ║
+     21 ║ ⊤  │⊤│⊤│⊤│⊥│⊥ │   ⊥   │    ⊥     │      ⊥       │        ⊥        │                  ⊤                   ║
+     22 ║ ⊤  │⊤│⊤│⊤│⊤│⊥ │   ⊥   │    ⊤     │      ⊥       │        ⊤        │                  ⊥                   ║
+     23 ╚════╧═╧═╧═╧═╧══╧═══════╧══════════╧══════════════╧═════════════════╧══════════════════════════════════════╝
   ```
 
 - __`eval`__ `symbols that are true :: List of Symbols` `symbols that are false :: List of Symbols` `expression :: Expression`
@@ -176,69 +218,291 @@ case-insensitive!
   __Example:__
 
   ```
-     1> eval [A, D] [E] (if A iff B then C implies D xor E else F and G or not D)
+     1> eval [A, D] [E,Z] (if A iff not B then C implies D xor E else True and F or not D)
   ```
 
-  TODO: Update Output!
   ```
-      1 First transform into CNF:
-      2 ((A v !B v !D v F) ^ (A v !B v !D v G) ^ (B v !A v !D v F) ^ (B v !A v !D v G) ^ (!A v !B v !C v !D v !E) ^ (!A v !B v !C v D v E) ^ (A v B v !C v !D v !E) ^ (A v B v !C v D v E) ^ (!C v !D v !E v F) ^ (
+      1 eval [A,D] [E,Z] ((A <=> !B) ? (C => (D + E)) : ((True ^ F) v !D))
+      2 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       3
-      4 Eliminate all maxterms which constains a true symbol:
-      5   • [A,!B,!D,F]
-      6     is eliminated because A is true.
-      7   • [A,!B,!D,G]
-      8     is eliminated because A is true.
-      9   • [!A,!B,!C,!D,!E]
-     10     is eliminated because !E is true.
-     11   • [!A,!B,!C,D,E]
-     12     is eliminated because D is true.
-     13   • [A,B,!C,!D,!E]
-     14     is eliminated because A is true.
-     15   • [A,B,!C,D,E]
-     16     is eliminated because A is true.
-     17   • [!C,!D,!E,F]
-     18     is eliminated because !E is true.
-     19   • [!C,!D,!E,G]
-     20     is eliminated because !E is true.
-     21
-     22
-     23 After all:
-     24 ((B v !A v !D v F) ^ (B v !A v !D v G))
-     25
-     26 Transform into DNF:
-     27 (B v (B ^ !A) v (B ^ !D) v (B ^ G) v (!A ^ B) v !A v (!A ^ !D) v (!A ^ G) v (!D ^ B) v (!D ^ !A) v !D v (!D ^ G) v (F ^ B) v (F ^ !A) v (F ^ !D) v (F ^ G))
-     28
-     29 Eliminate all minterms which constains a false symbol:
-     30   • [B,!A]
-     31     is eliminated because !A is false.
-     32   • [B,!D]
-     33     is eliminated because !D is false.
-     34   • [!A,B]
-     35     is eliminated because !A is false.
-     36   • [!A]
-     37     is eliminated because !A is false.
-     38   • [!A,!D]
+      4 WARNING: Some of the true/false symbols have not been found in the expression!
+      5
+      6   Redundant False Symbols: [Z]
+      7
+      8 1. Transform into Conjunctive Normal Form:
+      9   • {F, !D, !A, !B}
+     10   • {F, !D, B, A}
+     11   • {A, !B, !C, D, E}
+     12   • {A, !B, !C, !D, !E}
+     13   • {!A, B, !C, D, E}
+     14   • {!A, B, !C, !D, !E}
+     15   • {F, !D, !C, !E}
+     16
+     17 2. Eliminate all maxterms which constains a true symbol:
+     18   • {F, !D, B, A}
+     19     is eliminated because A is true.
+     20   • {A, !B, !C, D, E}
+     21     is eliminated because A is true.
+     22   • {A, !B, !C, !D, !E}
+     23     is eliminated because A is true.
+     24   • {!A, B, !C, D, E}
+     25     is eliminated because D is true.
+     26   • {!A, B, !C, !D, !E}
+     27     is eliminated because !E is true.
+     28   • {F, !D, !C, !E}
+     29     is eliminated because !E is true.
+     30
+     31 Remaining maxterms:
+     32   • {F, !D, !A, !B}
+     33
+     34 3. Transform into Disjunctive Normal Form:
+     35   • {F, !D, !A, !B}
+     36
+     37 4. Eliminate all minterms which constains a false symbol:
+     38   • {F, !D, !A, !B}
      39     is eliminated because !A is false.
-     40   • [!A,G]
-     41     is eliminated because !A is false.
-     42   • [!D,B]
-     43     is eliminated because !D is false.
-     44   • [!D,!A]
-     45     is eliminated because !A is false.
-     46   • [!D]
-     47     is eliminated because !D is false.
-     48   • [!D,G]
-     49     is eliminated because !D is false.
-     50   • [F,!A]
-     51     is eliminated because !A is false.
-     52   • [F,!D]
-     53     is eliminated because !D is false.
-     54
-     55
-     56 After all:
-     57 (B v (B ^ G) v (F ^ B) v (F ^ G))
+     40
+     41 Remaining minterms:
+     42   • {False}
+     43
+     44 Resultant expression:
+     45   False
   ```
+
+- __`toCNF/toDNF`__ `expression :: Expression`
+
+  Tranforms the `expression` into Disjunctive/Conjunctive Normal Form.
+
+  __Example:__
+
+  ```
+     1> toCNF (if A iff not B then C implies D else True and F or not D)
+  ```
+
+  ```
+      1 toCNF ((A <=> !B) ? (C => D) : ((True ^ F) v !D))
+      2 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      3
+      4 1. Transform all if-then-else (ITE) expressions:
+      5   • ((A <=> !B) ? (C => D) : (F v !D))
+      6     is transformed into
+      7     (((A <=> !B) ^ (C => D)) v (!(A <=> !B) ^ (F v !D)))
+      8
+      9 After all ITE expressions are transformed:
+     10   (((A <=> !B) ^ (C => D)) v (!(A <=> !B) ^ (F v !D)))
+     11
+     12 2. Transform all if-and-only-if (IFF) expressions:
+     13   • (A <=> !B)
+     14     is transformed into
+     15     !(A + !B)
+     16
+     17 After all IFF expressions are transformed:
+     18   ((!(A + !B) ^ (C => D)) v (!!(A + !B) ^ (F v !D)))
+     19
+     20 3. Tranform all implications:
+     21   • (C => D)
+     22     is transformed into
+     23     (!C v D)
+     24
+     25 After all implications are transformed:
+     26   ((!(A + !B) ^ (!C v D)) v (!!(A + !B) ^ (F v !D)))
+     27
+     28 4. Tranform all exclusive-or (XOR) expressions:
+     29   • (A + !B)
+     30     is transformed into
+     31     ((A v !B) ^ (!A v !!B))
+     32
+     33 After all XOR expressions are transformed:
+     34   ((!((A v !B) ^ (!A v !!B)) ^ (!C v D)) v (!!((A v !B) ^ (!A v !!B)) ^ (F v !D)))
+     35
+     36 5. Distribute NOTs:
+     37   • !!B
+     38     is transformed into
+     39     B
+     40   • !((A v !B) ^ (!A v B))
+     41     is transformed into
+     42     (!(A v !B) v !(!A v B))
+     43   • !(A v !B)
+     44     is transformed into
+     45     (!A ^ !!B)
+     46   • !(!A v B)
+     47     is transformed into
+     48     (!!A ^ !B)
+     49   • !!A
+     50     is transformed into
+     51     A
+     52   • !((!A ^ B) v (A ^ !B))
+     53     is transformed into
+     54     (!(!A ^ B) ^ !(A ^ !B))
+     55   • !(!A ^ B)
+     56     is transformed into
+     57     (!!A v !B)
+     58   • !(A ^ !B)
+     59     is transformed into
+     60     (!A v !!B)
+     61
+     62 After all NOTs are distributed:
+     63   ((((!A ^ B) v (A ^ !B)) ^ (!C v D)) v ((A v !B) ^ (!A v B) ^ (F v !D)))
+     64
+     65 6. Distribute ORs over ANDs:
+     66   • ((!A ^ B) v (A ^ !B))
+     67     is transformed into
+     68     ((!A v !B) ^ (B v A))
+     69   • (((!A v !B) ^ (B v A) ^ (!C v D)) v ((A v !B) ^ (!A v B) ^ (F v !D)))
+     70     is transformed into
+     71     ((((!A v !B) ^ (B v A)) v A v !B) ^ (((!A v !B) ^ (B v A)) v !A v B) ^ (((!A v !B) ^ (B v A)) v F v !D) ^ (!C v D v A v !B) ^ (!C v D v !A v B))
+     72   • (((!A v !B) ^ (B v A)) v A v !B)
+     73     is transformed into
+     74     True
+     75   • (((!A v !B) ^ (B v A)) v !A v B)
+     76     is transformed into
+     77     True
+     78   • (((!A v !B) ^ (B v A)) v F v !D)
+     79     is transformed into
+     80     ((F v !D v !A v !B) ^ (F v !D v B v A))
+     81
+     82 Resultant expression:
+     83   ((F v !D v !A v !B) ^ (F v !D v B v A) ^ (!C v D v A v !B) ^ (!C v D v !A v B))
+  ```
+
+- __`resolve`__ `expression :: Expression`
+
+  Iteratively applies the resolution rule to automatically resolve an expression
+  until either an empty clause is found or there are no more symbols to resolve
+  on left.
+
+  __Example:__
+
+  ```
+     1> resolve (if A iff not B then C implies D xor E else True and F or not D)
+  ```
+
+  ```
+      1 resolve ((A <=> !B) ? (C => (D + E)) : ((True ^ F) v !D))
+      2 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      3
+      4       • B[F,!D,!A,!B]
+      5       • B[F,!D,B,A]
+      6       • B[A,!B,!C,D,E]
+      7       • B[A,!B,!C,!D,!E]
+      8       • B[!A,B,!C,D,E]
+      9       • B[!A,B,!C,!D,!E]
+     10       • [F,!D,!C,!E]
+     11     
+     12   • ──┤ B ├────────────
+     13       • ~[F,!D,A,!A]~
+     14       • ~[F,!D,A,!C,D,E]~
+     15       • A[F,!D,A,!C,!E]
+     16       • ~[!A,!C,D,E,F,!D]~
+     17       • ~[!A,!C,D,E,A]~
+     18       • ~[!A,!C,D,E,A,!D,!E]~
+     19       • A[!A,!C,!D,!E,F]
+     20       • ~[!A,!C,!D,!E,A,D,E]~
+     21       • ~[!A,!C,!D,!E,A]~
+     22     
+     23   • ──┤ A ├────────────
+     24       • [F,!D,!C,!E]
+     25
+  ```
+
+- __`entail`__ `antecedent :: Expression` `consequent :: Expression`
+
+  Automatically constructs a (Gentzen-style) sequent calculus tree that branches
+  bottom-up.
+
+  __Bugs:__
+
+  - __boolexman__ requires both antecedent and consequent to be non empty
+    (*i.e.* non `()`) expressions. As a workaround, you can supply an expression
+    that consists of a single symbol that does not appear in the other
+    expression.
+
+  __Example:__
+
+  ```
+     1> entail (Q) (if A iff not B then C implies D xor E else F or not D)
+  ```
+
+  ```
+      entail Q ((A <=> !B) ? (C => (D + E)) : (F v !D))
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+      1(a). Transform all if-then-else (ITE) expressions in the condition:
+        No ITE expressions are found in the condition!
+
+      1(b). Transform all if-then-else (ITE) expressions in the consequence:
+        • ((A <=> !B) ? (C => (D + E)) : (F v !D))
+          is transformed into
+          (((A <=> !B) ^ (C => (D + E))) v (!(A <=> !B) ^ (F v !D)))
+
+      After all ITE expressions in the entailment are transformed:
+        Q |- (((A <=> !B) ^ (C => (D + E))) v (!(A <=> !B) ^ (F v !D)))
+
+      2(a). Transform all if-and-only-if (IFF) expressions in the condition:
+        No IFF expressions are found in the condition!
+
+      2(b). Transform all if-and-only-if (IFF) expressions in the consequence:
+        • (A <=> !B)
+          is transformed into
+          !(A + !B)
+        • (A <=> !B)
+          is transformed into
+          !(A + !B)
+
+      After all IFF expressions in the entailment are transformed:
+        Q |- ((!(A + !B) ^ (C => (D + E))) v (!!(A + !B) ^ (F v !D)))
+
+      3(a). Transform all exclusive-or (XOR) expressions in the condition:
+        No XOR expressions are found in the condition!
+
+      3(b). Transform all exclusive-or (XOR) expressions in the consequence:
+        • (A + !B)
+          is transformed into
+          ((A v !B) ^ (!A v !!B))
+        • (D + E)
+          is transformed into
+          ((D v E) ^ (!D v !E))
+        • (A + !B)
+          is transformed into
+          ((A v !B) ^ (!A v !!B))
+
+      After all XOR expressions in the entailment are transformed:
+        Q |- ((!((A v !B) ^ (!A v !!B)) ^ (C => ((D v E) ^ (!D v !E)))) v (!!((A v !B) ^ (!A v !!B)) ^ (F v !D)))
+
+                                                                                                                                                                                                                                                                                                                                                                                                 ────────────────── (F)                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                                 A, E, D, C, Q |- B                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                 ────────────────────── (!L)                                                                                                                                                          
+                                                                                                                                                                                                                                                                                                                                                                                                 !B, A, E, D, C, Q |-                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                   ────────────────── (F)                                           ────────────────── (F)                       ─────────────────────────── (!R)                                                                                                                                                     
+                                                                                                                                                                                                                                                                                   A, C, Q |- B, D, E                                               B, E, D, C, Q |- A                              A, E, D, C, Q |- !!B                                                                                                                                                              
+                                                                                                                                                                                                                                                                                   ────────────────────── (!L)                                      ────────────────────── (!R)                  ──────────────────────────────── (!R)                                                                                                                                                
+                                                                                                                                                                                                                                                                                    !B, A, C, Q |- D, E                                              E, D, C, Q |- A, !B                              E, D, C, Q |- !A, !!B                                                                                                                                                           
+                                                                                                     ─────────────── (F)                       ─────────────── (F)                                                                              ────────────────── (F)             ─────────────────────────── (!R)                                 ─────────────────────────── (!R)             ───────────────────────────────────── (!R)                                                                                                                                           
+                                                                                                     D, B, A, Q |- F                           D, Q |- B, A, F                                                                                  B, C, Q |- D, E, A                    A, C, Q |- D, E, !!B                                             D, C, Q |- !E, A, !B                             D, C, Q |- !E, !A, !!B                                                                                                                                                        
+                                                                                                     ─────────────────── (!R)                  ─────────────────── (!R)                                                                         ────────────────────── (!R)        ──────────────────────────────── (!R)                            ──────────────────────────────── (!R)        ────────────────────────────────────────── (!R)                                                                                                                                      
+                                                                                                      B, A, Q |- F, !D                          Q |- B, A, F, !D                                                                                 C, Q |- D, E, A, !B                    C, Q |- D, E, !A, !!B                                            C, Q |- !D, !E, A, !B                            C, Q |- !D, !E, !A, !!B                                                                                                                                                     
+                                                                         ──────────────── (I)        ──────────────────────── (!R)             ──────────────────────── (!L)        ────────────────── (I)                                      ─────────────────────────── (vR)   ───────────────────────────────────── (vR)                       ───────────────────────────────────── (vR)   ─────────────────────────────────────────────── (vR)                                                                     ─────────────── (F)                                         
+                                                                         A, Q |- A, F, !D               A, Q |- !B, F, !D                         !B, Q |- A, F, !D                 !B, Q |- !B, F, !D                                            C, Q |- (A v !B), D, E                 C, Q |- (!A v !!B), D, E                                         C, Q |- (A v !B), !D, !E                         C, Q |- (!A v !!B), !D, !E                                                                                     E, D, C, Q |- F                                             
+                                                                         ──────────────────── (!L)   ───────────────────────────── (!L)        ───────────────────────────── (!L)   ────────────────────── (!L)                                 ───────────────────────────────────────────────────────────────────────────── (^R)                  ───────────────────────────────────────────────────────────────────────────────────────────────── (^R)                             ────────────────── (I)             ─────────────────── (!R)                                    
+                                                                          !A, A, Q |- F, !D               !!B, A, Q |- F, !D                        !A, !B, Q |- F, !D               !!B, !B, Q |- F, !D                                                            C, Q |- ((A v !B) ^ (!A v !!B)), D, E                                                                        C, Q |- ((A v !B) ^ (!A v !!B)), !D, !E                                                               D, C, Q |- F, D, E                  D, C, Q |- F, !E                                           
+                                                                         ────────────────────────────────────────────────────────────── (vL)   ──────────────────────────────────────────────────────────────── (vL)                            ────────────────────────────────────────────────────────────────────────────────── (!L)             ────────────────────────────────────────────────────────────────────────────────────────────────────── (!L)                        ────────────────────── (!R)        ──────────────────────── (!R)                               
+                                                                                           A, Q, (!A v !!B) |- F, !D                                              !B, Q, (!A v !!B) |- F, !D                                                                          !((A v !B) ^ (!A v !!B)), C, Q |- D, E                                                                       !((A v !B) ^ (!A v !!B)), C, Q |- !D, !E                                                             C, Q |- F, !D, D, E                  C, Q |- F, !D, !E                                        
+                                                                         ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (vL)                       ─────────────────────────────────────────────────────────────────────────────────────── (!R)        ─────────────────────────────────────────────────────────────────────────────────────────────────────────── (!R)                   ─────────────────────────── (vR)   ───────────────────────────── (vR)                          
+                                                                                                                              Q, (A v !B), (!A v !!B) |- F, !D                                                                                                          C, Q |- !!((A v !B) ^ (!A v !!B)), D, E                                                                      C, Q |- !!((A v !B) ^ (!A v !!B)), !D, !E                                                           C, Q |- (D v E), F, !D             C, Q |- (!D v !E), F, !D                                  
+                                                                         ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (^L)                  ──────────────────────────────────────────────────────────────────────────────────────────── (vR)   ──────────────────────────────────────────────────────────────────────────────────────────────────────────────── (vR)              ───────────────────────────────────────────────────────────────────── (^R)                     
+                                                                                                                               ((A v !B) ^ (!A v !!B)), Q |- F, !D                                                                                                       C, Q |- (D v E), !!((A v !B) ^ (!A v !!B))                                                                   C, Q |- (!D v !E), !!((A v !B) ^ (!A v !!B))                                                                     C, Q |- ((D v E) ^ (!D v !E)), F, !D                                           
+      ─────────────────────────────────────────────────────── (I)        ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (!R)             ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (^R)         ────────────────────────────────────────────────────────────────────────── (=>R)               
+      !((A v !B) ^ (!A v !!B)), Q |- !((A v !B) ^ (!A v !!B))                                                                    Q |- !((A v !B) ^ (!A v !!B)), F, !D                                                                                                                                                           C, Q |- ((D v E) ^ (!D v !E)), !!((A v !B) ^ (!A v !!B))                                                                                                                Q |- (C => ((D v E) ^ (!D v !E))), F, !D                                      
+      ─────────────────────────────────────────────────────────── (!R)   ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (vR)        ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (=>R)   ──────────────────────────────────────────────────────────────────────────────── (vR)          
+       Q |- !!((A v !B) ^ (!A v !!B)), !((A v !B) ^ (!A v !!B))                                                                   Q |- (F v !D), !((A v !B) ^ (!A v !!B))                                                                                                                                                        Q |- !!((A v !B) ^ (!A v !!B)), (C => ((D v E) ^ (!D v !E)))                                                                                                            Q |- (F v !D), (C => ((D v E) ^ (!D v !E)))                                  
+      ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (^R)   ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (^R)     
+                                                                                    Q |- !((A v !B) ^ (!A v !!B)), (!!((A v !B) ^ (!A v !!B)) ^ (F v !D))                                                                                                                                                                                                                Q |- (C => ((D v E) ^ (!D v !E))), (!!((A v !B) ^ (!A v !!B)) ^ (F v !D))                                                                                                                                    
+      ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (^R)
+                                                                                                                                                                                                                                        Q |- (!((A v !B) ^ (!A v !!B)) ^ (C => ((D v E) ^ (!D v !E)))), (!!((A v !B) ^ (!A v !!B)) ^ (F v !D))                                                                                                                                                                                                                                        
+      ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── (vR)
+                                                                                                                                                                                                                                         Q |- ((!((A v !B) ^ (!A v !!B)) ^ (C => ((D v E) ^ (!D v !E)))) v (!!((A v !B) ^ (!A v !!B)) ^ (F v !D)))
+  ```
+
 
 
 ### Operator Precedence & Associativity
@@ -258,7 +522,6 @@ For instance
 
 ```
 subexpressions (A ? (B ? C : D) : E xor not F and G implies H or I iff J)
-
 ```
 
 would be interpreted as
@@ -316,7 +579,7 @@ of them are formal definitions (especially with respect to the spaces).
   `True` and `False` are reserved symbols, meaning *true* and *false*
   respectively.
 
-* `<SYMBOL LIST>`
+* `<LIST OF SYMBOLS>`
 
   ```
   \[<SYMBOL>(, <SYMBOL>)*\]

@@ -136,6 +136,9 @@ data EntailmentResult = EntailmentResult { condITEeliminations    :: [(Expr, Exp
 
 type Clause = [Expr]
 type Step   = [Clause]
+-- BEWARE
+-- Mistakenly, I called the symbol we are resolving on, the "resolvent", whereas
+-- "the clause produced by a resolution rule is called a resolvent".
 type Resolvent = Expr
 data ClauseStatus = ResolvedBy Resolvent
                   | Striken
