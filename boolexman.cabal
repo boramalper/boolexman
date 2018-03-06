@@ -10,7 +10,7 @@ name:                boolexman
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.1.0.0
+version:             0.2.0.0
 
 -- A short (one-line) description of the package.
 synopsis:            boolean expression manipulator
@@ -35,7 +35,7 @@ author:              Mert Bora ALPER
 maintainer:          bora@boramalper.org
 
 -- A copyright notice.
--- copyright:
+copyright:           Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
 
 -- category:
 
@@ -62,7 +62,7 @@ executable boolexman
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.8 && <4.10
                      , regex-pcre-builtin >= 0.94.4.8.8.35 && == 0.94.*
---                     , transformers >= 0.4.2.0 && == 0.4.*
+                     , transformers >= 0.4.2.0 && == 0.4.*
                      , QuickCheck >= 2.9.2 && == 2.*
                      , regex-tdfa >= 1.2.2 && == 1.*
                      , split >= 0.2.3.1 && == 0.2.*

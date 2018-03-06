@@ -14,7 +14,7 @@ those (functions) for fully-automated resolution, entailment, and
 partial-evaluation. All commands shows *their working* step-by-step, with
 detailed explanations of each rule that was used.
 
-## Installation
+## Setup
 1. Clone the repository
    ```
    $ git clone https://github.com/boramalper/boolexman
@@ -54,11 +54,45 @@ the tests should fail.
 If you intend to contribute to __boolexman__, contact me at
 <bora@boramalper.org>.
 
+### Compiling the Web Application from the Sources
+__boolexman__ can be transmogrified into JavaScript, which in turn allows it to
+be used as a Web application in browser, all thanks to
+[GHCJS](https://github.com/ghcjs/ghcjs). Although it might not be as reliable as
+the traditional method, it also makes __boolexman__ significantly more
+*affordable*.
+
+1. Install AND setup GHCJS, and all of its requirements by following the
+   documentation:
+
+   https://github.com/ghcjs/ghcjs
+
+   * Booting (*i.e.* `ghcjs-boot`) might take a while, be patient.
+
+2. Enter the `src/` directory:
+   ```
+   cd src/
+   ```
+
+2. Transmogrify __boolexman__:
+    ```
+    ghcjs -main-is WebMain --make WebMain.hs -o boolexman
+    ```
+
+3. Copy the JavaScript files:
+   ```
+   cp boolexman.jsexe/lib.js boolexman.jsexe/out.js boolexman.jsexe/rts.js boolexman.jsexe/runmain.js ../web/
+   ```
+
+3. (Optional) Get rid of the `.js_hi` and `.js_o` files:
+   ```
+   rm -r *.js* Engine/*.js*
+   ```
+
 ## Quick Manual
 Each time you run __boolexman__, you will be greeted with a screen like follows:
 
 ```
-boolexman - boolean expression manipulator | v0.1.0.0
+boolexman - boolean expression manipulator | v0.2.0.0
 
    1>
 ```

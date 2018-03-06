@@ -1,3 +1,7 @@
+### ghcjs ###
+*.js_hi
+*.js_o
+
 
 # Created by https://www.gitignore.io/api/haskell,visualstudiocode
 

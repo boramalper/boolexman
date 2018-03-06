@@ -1,0 +1,64 @@
+<!doctype html>
+<!-- boolexman - boolean expression manipulator
+Copyright (c) 2018 Mert Bora ALPER <bora@boramalper.org>
+
+Permission to use, copy, modify, and/or distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright notice
+and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+-->
+<html lang="en-GB">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>boolexman - labs.boramalper.org</title>
+    <meta name="description" content="boolean expression manipulator for educational purposes" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700&amp;subset=cyrillic,greek" rel="stylesheet">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="index.css" />
+
+    <script src="rts.js"></script>
+    <script src="lib.js"></script>
+    <script src="out.js"></script>
+
+    <style>
+      a {
+        color: black;
+      }
+
+      a:hover, a:focus {
+        background-color: black;
+        color: white;
+      }
+    </style>
+  </head>
+
+  <body style="display: flex; flex-direction: column; margin: 16px 8px 8px 8px; height: calc(100vh - 16px - 8px);">
+    <header style="margin-bottom: 1em;">
+      <strong><a href="http://labs.boramalper.org">labs.</a><a href="http://boramalper.org">boramalper.org</a>/boolexman</strong>
+    </header>
+    <noscript>
+      Wouldn't work!
+    </noscript>
+    <main style="display: flex; flex-direction: column; height: 100%">
+      <div id="terminal" style="margin-bottom: 1em; border: 2px solid black; overflow: auto; font-family: 'Roboto Mono', monospace; white-space: pre; flex-grow: 2;">boolexman -- boolean expression manipulator
+Copyright (c) 2018 Mert Bora ALPER &lt;bora@boramalper.org&gt;
+See <a href="https://github.com/boramalper/boolexman">https://github.com/boramalper/boolexman</a> for help and the source code.
+
+</div>
+
+      <div style="border: 2px solid black; display: flex; align-items: baseline; font-family: 'Roboto Mono', monospace;">
+        <span id="prompt">0001</span><span>&gt;&nbsp;</span><input id="line" type="text" autofocus autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="Enter your commands here." style="flex-grow: 2; border: none; font-family: 'Roboto Mono', monospace; font-size: 1em;">
+      </div>
+    </main>
+    <script src="runmain.js" defer></script>
+    <script src="index.js"></script>
+  </body>
+</html>
