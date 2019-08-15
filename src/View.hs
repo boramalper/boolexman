@@ -25,6 +25,7 @@ module View( viewEntailment
            , viewLess
            ) where
 
+import Data.List
 import Data.List.Split
 import System.Process
 
@@ -79,7 +80,7 @@ boxAppend padding strings =
         listOfFixedWidthLines = map (\lines' -> map (fixedWidth (longest lines')) lines') listOfLines :: [[String]]
         listOfSameHeightFixedWidthLines = map (fixedHeight (longest listOfFixedWidthLines)) listOfFixedWidthLines :: [[String]]
     in
-        foldr1 (\a b -> a ++ "\n" ++ b) $ map (\i -> append $ map (\x -> x !! i) listOfSameHeightFixedWidthLines) [0..length (head listOfSameHeightFixedWidthLines) - 1]
+        foldr1 (\a b -> a ++ "\n" ++ b) $ map append (transpose listOfSameHeightFixedWidthLines)
     where
         append :: [String] -> String
         append = foldr1 (\a b -> a ++ padding ++ b)
